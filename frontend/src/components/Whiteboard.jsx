@@ -40,6 +40,7 @@ export default function Whiteboard({ shapes, awareness }) {
   const shapeNodeRefs = useRef({}) // id -> Konva node, so the Transformer can attach
   const transformerRef = useRef(null)
   const [stageSize, setStageSize] = useState({ width: 640, height: 520 })
+  const [textBox, setTextBox] = useState(null)
 
   // Fill the whole panel instead of a fixed 640x520 box. Without this,
   // the canvas leaves dead space below/beside it whenever the window is
@@ -156,18 +157,15 @@ export default function Whiteboard({ shapes, awareness }) {
 
     const pos = pointerPos()
     if (tool === 'text') {
-      const content = window.prompt('Text:')
-      if (!content) return
-      const map = new Y.Map()
-      map.set('id', `${awareness.clientID}-${Date.now()}`)
-      map.set('type', 'text')
-      map.set('x', pos.x)
-      map.set('y', pos.y)
-      map.set('text', content)
-      map.set('color', awareness.getLocalState()?.user?.color || '#000')
-      shapes.push([map])
-      return
-    }
+  setTextBox({
+    x: pos.x,
+    y: pos.y,
+    width: 200,
+    height: 80,
+    text: "",
+  })
+  return
+}
 
     const id = `${awareness.clientID}-${Date.now()}`
     const map = new Y.Map()
@@ -310,7 +308,10 @@ export default function Whiteboard({ shapes, awareness }) {
           )}
         </div>
       </div>
-      <div ref={canvasWrapRef} className="flex-1 min-h-0 bg-bg-deep">
+      <div
+          ref={canvasWrapRef}
+          className="flex-1 min-h-0 bg-bg-deep relative"
+        >
         <Stage
           ref={stageRef}
           width={stageSize.width}
@@ -419,6 +420,50 @@ export default function Whiteboard({ shapes, awareness }) {
             )}
           </Layer>
         </Stage>
+        {textBox && (
+              <textarea
+             
+                value={textBox.text}
+                onChange={(e) =>
+                  setTextBox({
+                    ...textBox,
+                    text: e.target.value,
+                  })
+                }
+                onBlur={() => {
+                      if (!textBox.text.trim()) {
+                        setTextBox(null)
+                        return
+                      }
+
+                      const map = new Y.Map()
+                      map.set("id", `${awareness.clientID}-${Date.now()}`)
+                      map.set("type", "text")
+                      map.set("x", textBox.x)
+                      map.set("y", textBox.y)
+                      map.set("text", textBox.text)
+                      map.set("color", awareness.getLocalState()?.user?.color || "#000")
+
+                      shapes.push([map])
+
+                      setTextBox(null)
+                    }}
+                style={{
+                  position: "absolute",
+                  left: textBox.x,
+                  top: textBox.y,
+                  width: textBox.width,
+                  height: textBox.height,
+                  resize: "both",
+                  overflow: "hidden",
+                  border: "1px solid #3b82f6",
+                  outline: "none",
+                  background: "transparent",
+                  fontSize: "16px",
+                  padding: "4px",
+                }}
+              />
+            )}
       </div>
     </div>
   )
