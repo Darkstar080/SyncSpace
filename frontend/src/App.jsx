@@ -3,7 +3,6 @@ import JoinScreen from './components/JoinScreen'
 import Whiteboard from './components/Whiteboard'
 import CodeEditor from './components/CodeEditor'
 import { createRoomConnection, destroyRoomConnection, randomColor } from './lib/yjs'
-import './App.css'
 
 export default function App() {
   const [connection, setConnection] = useState(null)
@@ -37,18 +36,32 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="topbar-left">
-          <span className="brand">SyncSpace</span>
-          <span className="room-badge">Room: {connection.roomName}</span>
+    <div className="h-screen flex flex-col">
+      <header className="h-13 flex-shrink-0 flex items-center justify-between px-5 bg-bg-panel border-b border-border">
+        <div className="flex items-center gap-3">
+          <span className="font-bold tracking-tight">SyncSpace</span>
+          <span className="text-xs text-text-dim bg-bg-deep px-2.5 py-1 rounded-full border border-border">
+            Room: {connection.roomName}
+          </span>
         </div>
-        <div className="topbar-right">
-          <span className={`status-dot ${status}`} />
-          <span className="status-label">{status}</span>
-          <div className="presence">
+        <div className="flex items-center gap-2.5">
+          <span
+            className={`w-2 h-2 rounded-full ${
+              status === 'connected'
+                ? 'bg-success shadow-[0_0_6px_var(--color-success)]'
+                : status === 'disconnected'
+                ? 'bg-accent-2'
+                : 'bg-text-dim'
+            }`}
+          />
+          <span className="text-xs text-text-dim capitalize">{status}</span>
+          <div className="flex gap-1.5 ml-2.5">
             {users.map((u, i) => (
-              <span key={i} className="presence-chip" style={{ background: u.color }}>
+              <span
+                key={i}
+                className="text-xs px-2.5 py-1 rounded-full text-bg-deep font-semibold"
+                style={{ background: u.color }}
+              >
                 {u.name}
               </span>
             ))}
@@ -56,7 +69,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="split">
+      <main className="flex-1 flex min-h-0">
         <Whiteboard shapes={connection.shapes} awareness={connection.awareness} />
         <CodeEditor codeText={connection.codeText} awareness={connection.awareness} />
       </main>
