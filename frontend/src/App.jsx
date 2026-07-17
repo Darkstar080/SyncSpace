@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import JoinScreen from './components/JoinScreen'
 import Whiteboard from './components/Whiteboard'
 import CodeEditor from './components/CodeEditor'
+import { MessageCircle } from "lucide-react";
+import ChatPanel from "./components/ChatPanel";
 import { createRoomConnection, destroyRoomConnection, randomColor } from './lib/yjs'
 import './App.css'
 
@@ -10,6 +12,7 @@ export default function App() {
   const [status, setStatus] = useState('disconnected')
   const [users, setUsers] = useState([])
   const connectionRef = useRef(null)
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   function handleJoin({ name, room }) {
     const user = { name, color: randomColor() }
@@ -44,6 +47,12 @@ export default function App() {
           <span className="room-badge">Room: {connection.roomName}</span>
         </div>
         <div className="topbar-right">
+        <button
+            className="chat-btn"
+            onClick={() => setIsChatOpen(!isChatOpen)}
+          >
+            <MessageCircle size={22} />
+          </button>
           <span className={`status-dot ${status}`} />
           <span className="status-label">{status}</span>
           <div className="presence">
@@ -60,6 +69,7 @@ export default function App() {
         <Whiteboard shapes={connection.shapes} awareness={connection.awareness} />
         <CodeEditor codeText={connection.codeText} awareness={connection.awareness} />
       </main>
+      {isChatOpen && <ChatPanel />}
     </div>
   )
 }
