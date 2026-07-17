@@ -1,9 +1,19 @@
-:root {
-  color-scheme: dark;
-}
+@import "tailwindcss";
 
-* {
-  box-sizing: border-box;
+/* Design tokens — Tailwind v4 auto-generates utility classes from these
+   (e.g. --color-accent below becomes usable as `bg-accent`, `text-accent`,
+   `border-accent`, etc.) This keeps our dark dev-tool theme consistent
+   across every component instead of hardcoding hex values everywhere. */
+@theme {
+  --color-bg: #1e1e2e;
+  --color-bg-panel: #181825;
+  --color-bg-deep: #11111b;
+  --color-border: #313244;
+  --color-text: #cdd6f4;
+  --color-text-dim: #9399b2;
+  --color-accent: #89b4fa;
+  --color-accent-2: #f38ba8;
+  --color-success: #a6e3a1;
 }
 
 html, body, #root {

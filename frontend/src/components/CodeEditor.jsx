@@ -21,20 +21,22 @@ export default function CodeEditor({ codeText, awareness }) {
   }
 
   return (
-    <div className="panel editor-panel">
-      <div className="panel-header">
-        <span>Code Editor</span>
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0">
+        <span className="font-medium text-text">Code Editor</span>
       </div>
-      <Editor
-        height="520px"
-        defaultLanguage="javascript"
-        theme="vs-dark"
-        onMount={handleMount}
-        options={{
-          minimap: { enabled: false },
-          fontSize: 14,
-        }}
-      />
+      <div className="flex-1 min-h-0">
+        <Editor
+          height="100%"
+          defaultLanguage="javascript"
+          theme="vs-dark"
+          onMount={handleMount}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 14,
+          }}
+        />
+      </div>
     </div>
   )
 }

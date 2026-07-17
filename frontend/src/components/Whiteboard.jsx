@@ -36,8 +36,26 @@ export default function Whiteboard({ shapes, awareness }) {
   const drawingShapeId = useRef(null)
   const startPoint = useRef(null)
   const stageRef = useRef(null)
+  const canvasWrapRef = useRef(null)
   const shapeNodeRefs = useRef({}) // id -> Konva node, so the Transformer can attach
   const transformerRef = useRef(null)
+  const [stageSize, setStageSize] = useState({ width: 640, height: 520 })
+
+  // Fill the whole panel instead of a fixed 640x520 box. Without this,
+  // the canvas leaves dead space below/beside it whenever the window is
+  // bigger than the hardcoded size — which is what was happening before.
+  useEffect(() => {
+    const el = canvasWrapRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      const { width, height } = entry.contentRect
+      setStageSize({ width: Math.max(width, 1), height: Math.max(height, 1) })
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   // One UndoManager per room, scoped to the shapes array only. (Code
   // editor undo is handled separately, by Monaco itself.)
@@ -248,41 +266,59 @@ export default function Whiteboard({ shapes, awareness }) {
   const selectable = tool === 'select'
 
   return (
-    <div className="panel whiteboard-panel">
-      <div className="panel-header">
-        <span>Whiteboard</span>
-        <div className="tool-group">
-          {TOOLS.map((t) => (
-            <button
-              key={t}
-              className={`tool-btn ${tool === t ? 'active' : ''}`}
-              onClick={() => setTool(t)}
-            >
-              {t}
-            </button>
-          ))}
-          <button className="tool-btn" onClick={() => undoManager.undo()} title="Ctrl+Z">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0 border-r border-border">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0">
+        <span className="font-medium text-text">Whiteboard</span>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-0.5 bg-bg-deep rounded-lg p-1">
+            {TOOLS.map((t) => (
+              <button
+                key={t}
+                className={`px-2.5 py-1 rounded-md text-xs capitalize cursor-pointer transition-colors ${
+                  tool === t
+                    ? 'bg-accent text-bg-deep font-semibold'
+                    : 'bg-transparent text-text-dim hover:text-text'
+                }`}
+                onClick={() => setTool(t)}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          <div className="w-px h-5 bg-border" />
+          <button
+            className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
+            onClick={() => undoManager.undo()}
+            title="Ctrl+Z"
+          >
             undo
           </button>
-          <button className="tool-btn" onClick={() => undoManager.redo()} title="Ctrl+Shift+Z">
+          <button
+            className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
+            onClick={() => undoManager.redo()}
+            title="Ctrl+Shift+Z"
+          >
             redo
           </button>
           {selectedId && (
-            <button className="tool-btn danger" onClick={() => deleteShape(selectedId)}>
+            <button
+              className="px-2.5 py-1 rounded-md text-xs bg-transparent border border-accent-2 text-accent-2 hover:bg-accent-2 hover:text-bg-deep"
+              onClick={() => deleteShape(selectedId)}
+            >
               delete
             </button>
           )}
         </div>
       </div>
-      <div className="canvas-wrap">
+      <div ref={canvasWrapRef} className="flex-1 min-h-0 bg-bg-deep">
         <Stage
           ref={stageRef}
-          width={640}
-          height={520}
+          width={stageSize.width}
+          height={stageSize.height}
           onMouseDown={handleStageMouseDown}
           onMouseMove={handleStageMouseMove}
           onMouseUp={handleStageMouseUp}
-          className="konva-stage"
+          className="bg-white"
         >
           <Layer>
             {Array.from(shapes).map((map) => {
