@@ -230,6 +230,16 @@ body {
   font-weight: 600;
 }
 
+.tool-btn.danger {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+
+.tool-btn.danger:hover {
+  background: var(--accent-2);
+  color: #11111b;
+}
+
 .canvas-wrap {
   flex: 1;
   overflow: auto;
