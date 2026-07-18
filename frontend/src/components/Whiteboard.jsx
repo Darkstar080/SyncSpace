@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { Stage, Layer, Line, Rect, Text, Circle, Label, Tag, Transformer } from 'react-konva'
 import * as Y from 'yjs'
+import PenPanel from "./PenPanel"
+import MiniPenBar from "./MiniPenBar"
 
 const TOOLS = ['select', 'pen', 'rect', 'text']
 
@@ -41,6 +43,20 @@ export default function Whiteboard({ shapes, awareness }) {
   const transformerRef = useRef(null)
   const [stageSize, setStageSize] = useState({ width: 640, height: 520 })
   const [textBox, setTextBox] = useState(null)
+  const [showPenPanel, setShowPenPanel] = useState(false)
+  const [showMiniPenBar, setShowMiniPenBar] = useState(false)
+   const [minimized, setMinimized] = useState(false)
+  const [penColor, setPenColor] = useState("#1e1e1e")
+  const [strokeWidth, setStrokeWidth] = useState(2)
+  const [opacity, setOpacity] = useState(100)
+  const [penType, setPenType] = useState("normal")
+  const penPanelRef = useRef(null)
+  const [penPanelPosition, setPenPanelPosition] = useState({
+      x: 20,
+      y: 70,
+    })
+  
+ 
 
   // Fill the whole panel instead of a fixed 640x520 box. Without this,
   // the canvas leaves dead space below/beside it whenever the window is
@@ -72,12 +88,33 @@ export default function Whiteboard({ shapes, awareness }) {
   }, [shapes])
 
   // Re-render on awareness changes (other users' cursors moving).
+
+ // Close the Pen Panel when clicking outside of it
   useEffect(() => {
     const rerender = () => forceRender()
     awareness.on('change', rerender)
     return () => awareness.off('change', rerender)
   }, [awareness])
 
+
+  // Close Pen Panel when clicking outside of it
+useEffect(() => {
+  function handleMouseDown(e) {
+    if (
+      showPenPanel &&
+      penPanelRef.current &&
+      !penPanelRef.current.contains(e.target)
+    ) {
+      setShowPenPanel(false)
+    }
+  }
+
+  document.addEventListener("mousedown", handleMouseDown)
+
+  return () => {
+    document.removeEventListener("mousedown", handleMouseDown)
+  }
+}, [showPenPanel])
   // Keep the Transformer attached to the selected shape — but ONLY if it's
   // a rect. Lines and text can be selected and moved, but have no
   // onTransformEnd handler to persist a resize, so attaching the
@@ -148,6 +185,10 @@ export default function Whiteboard({ shapes, awareness }) {
   }
 
   function handleStageMouseDown(e) {
+    if (showPenPanel) {
+      setShowPenPanel(false)
+      setShowMiniPenBar(true)
+    }
     // Clicked empty canvas background -> clear selection.
     if (e.target === stageRef.current) {
       setSelectedId(null)
@@ -170,7 +211,14 @@ export default function Whiteboard({ shapes, awareness }) {
     const id = `${awareness.clientID}-${Date.now()}`
     const map = new Y.Map()
     map.set('id', id)
-    map.set('color', awareness.getLocalState()?.user?.color || '#000')
+    map.set(
+      "color",
+      penType === "laser" ? "#ff2d2d" : penColor
+    )
+    map.set('strokeWidth', strokeWidth)
+    map.set("opacity", opacity)
+    map.set("penType", penType)
+    map.set("createdAt", Date.now())
 
     if (tool === 'pen') {
       map.set('type', 'line')
@@ -208,12 +256,28 @@ export default function Whiteboard({ shapes, awareness }) {
       map.set('height', pos.y - start.y)
     }
   }
+  // When the user releases the mouse button, if they were drawing a "laser" line, remove it after a short delay. This creates a temporary
+  // highlight effect that disappears automatically.
+    function handleStageMouseUp() {
+      const id = drawingShapeId.current
 
-  function handleStageMouseUp() {
-    drawingShapeId.current = null
-    startPoint.current = null
-  }
+      if (id) {
+        const shape = getShapeMapById(id)
 
+        if (shape && shape.get("penType") === "laser") {
+          setTimeout(() => {
+            const index = getShapeIndexById(id)
+
+            if (index !== -1) {
+              shapes.delete(index, 1)
+            }
+          }, 1000) // Change to 2000 for 2 seconds
+        }
+      }
+
+      drawingShapeId.current = null
+      startPoint.current = null
+    }
   // --- Move (drag) a shape: write the new position back into its Y.Map ---
   function handleShapeDragEnd(id, e) {
     const map = getShapeMapById(id)
@@ -277,7 +341,15 @@ export default function Whiteboard({ shapes, awareness }) {
                     ? 'bg-accent text-bg-deep font-semibold'
                     : 'bg-transparent text-text-dim hover:text-text'
                 }`}
-                onClick={() => setTool(t)}
+                onClick={() => {
+                  setTool(t)
+
+                  if (t === "pen") {
+                    setShowPenPanel(true)
+                  } else {
+                    setShowPenPanel(false)
+                  }
+                }}
               >
                 {t}
               </button>
@@ -346,10 +418,21 @@ export default function Whiteboard({ shapes, awareness }) {
                     {...commonProps}
                     points={map.get('points') || []}
                     stroke={isSelected ? '#89b4fa' : color}
-                    strokeWidth={isSelected ? 3.5 : 2.5}
+                    strokeWidth={isSelected ? map.get("strokeWidth") + 1 : map.get("strokeWidth")}
+                    opacity={(map.get("opacity") ?? 100) / 100}
                     tension={0}
                     lineCap="round"
                     lineJoin="round"
+                    shadowColor={map.get("penType") === "laser" ? "#ff0000" : undefined}
+                    shadowBlur={map.get("penType") === "laser" ? 12 : 0}
+                    shadowOpacity={map.get("penType") === "laser" ? 1 : 0}
+                    shadowEnabled={map.get("penType") === "laser"}
+
+                    strokeWidth={
+                      map.get("penType") === "laser"
+                        ? map.get("strokeWidth") + 1
+                        : (isSelected ? map.get("strokeWidth") + 1 : map.get("strokeWidth"))
+                    }
                   />
                 )
               }
@@ -361,7 +444,11 @@ export default function Whiteboard({ shapes, awareness }) {
                     y={map.get('y')}
                     width={map.get('width')}
                     height={map.get('height')}
-                    stroke={isSelected ? '#89b4fa' : color}
+                    stroke={
+                          map.get("penType") === "laser"
+                            ? "#ff0000"
+                            : (isSelected ? "#89b4fa" : color)
+                        }
                     strokeWidth={isSelected ? 3 : 2}
                     onTransformEnd={(e) => handleRectTransformEnd(id, e)}
                   />
@@ -420,6 +507,40 @@ export default function Whiteboard({ shapes, awareness }) {
             )}
           </Layer>
         </Stage>
+          {showPenPanel && (
+            <div ref={penPanelRef}>
+              <PenPanel
+                penColor={penColor}
+                setPenColor={setPenColor}
+                strokeWidth={strokeWidth}
+                setStrokeWidth={setStrokeWidth}
+                opacity={opacity}
+                setOpacity={setOpacity}
+                penType={penType}
+                setPenType={setPenType}
+                position={penPanelPosition}
+                setPosition={setPenPanelPosition}
+              />
+            </div>
+          )}
+          {showMiniPenBar && (
+            <MiniPenBar
+                onExpand={() => {
+                  setPenPanelPosition({
+                    x: penPanelPosition.x,
+                    y: penPanelPosition.y + 45,
+                  })
+
+                  setShowMiniPenBar(false)
+                  setShowPenPanel(true)
+                }}
+              onClose={() => {
+                setShowMiniPenBar(false)
+              }}
+              position={penPanelPosition}
+              setPosition={setPenPanelPosition}
+            />
+          )}
         {textBox && (
               <textarea
              
