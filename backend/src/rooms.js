@@ -24,6 +24,7 @@ import * as syncProtocol from 'y-protocols/sync'
 import * as awarenessProtocol from 'y-protocols/awareness'
 import * as encoding from 'lib0/encoding'
 import * as decoding from 'lib0/decoding'
+import { loadRoomUpdate, saveRoomUpdate, flushRoom } from './persistence.js'
 
 const MESSAGE_SYNC = 0
 const MESSAGE_AWARENESS = 1
@@ -62,6 +63,17 @@ class WSSharedDoc extends Y.Doc {
       syncProtocol.writeUpdate(encoder, update)
       const message = encoding.toUint8Array(encoder)
       this.conns.forEach((conn) => send(conn, message))
+
+      // Persist every change as it happens. This is what closes the gap
+      // where data used to be lost the moment the last person left a
+      // room (see getRoom below for the removal logic) — since every
+      // edit is saved the instant it happens, there's no "unsaved" state
+      // left by the time anyone disconnects. Skip re-saving the update
+      // we just loaded FROM persistence (see getRoom) — saving it back
+      // immediately would be a pointless round trip.
+      if (origin !== 'persistence-load') {
+        saveRoomUpdate(this.name, update)
+      }
     })
   }
 }
@@ -83,6 +95,20 @@ function getRoom(docName) {
     doc = new WSSharedDoc(docName)
     rooms.set(docName, doc)
     console.log(`[rooms] created room "${docName}"`)
+
+    // Load any previously saved state before anyone starts editing.
+    // Connections wait on this (see setupWSConnection) so nobody syncs
+    // against a half-loaded doc.
+    doc.readyPromise = loadRoomUpdate(docName)
+      .then((update) => {
+        if (update) {
+          Y.applyUpdate(doc, update, 'persistence-load')
+          console.log(`[rooms] restored persisted state for room "${docName}"`)
+        }
+      })
+      .catch((err) => {
+        console.warn(`[rooms] error loading persisted state for "${docName}": ${err.message}`)
+      })
   }
   return doc
 }
@@ -96,13 +122,16 @@ function closeConnection(conn) {
       [conn.clientId],
       null
     )
-    // Free the room from memory once everyone leaves. Note: this means
-    // in-memory-only state is lost when the last person disconnects —
-    // Week 3's persistence layer (Mongo) is what fixes that; this file
-    // intentionally only covers Week 1's in-memory sync engine.
+    // Free the room from memory once everyone leaves. Note: every edit
+    // was already saved live (see the 'update' handler above), so — unlike
+    // before persistence existed — nothing is lost here. This cleanup is
+    // purely about not holding empty rooms in RAM forever.
     if (doc.conns.size === 0) {
       rooms.delete(doc.name)
       console.log(`[rooms] room "${doc.name}" emptied, removed from memory`)
+      // Best-effort compaction of this room's stored updates. Not
+      // required for correctness — fire and forget.
+      flushRoom(doc.name)
     }
   }
   try {
@@ -119,7 +148,7 @@ function closeConnection(conn) {
  * @param {import('ws').WebSocket} conn
  * @param {string} docName - the room/session id (e.g. from the URL path)
  */
-export function setupWSConnection(conn, docName) {
+export async function setupWSConnection(conn, docName) {
   conn.binaryType = 'arraybuffer'
   const doc = getRoom(docName)
   conn.doc = doc
@@ -159,6 +188,11 @@ export function setupWSConnection(conn, docName) {
 
   conn.on('close', () => closeConnection(conn))
   conn.on('error', () => closeConnection(conn))
+  // Wait for any persisted state to finish loading before starting the
+  // sync handshake — otherwise a client connecting at the exact moment
+  // the room is first created could sync against a doc that hasn't
+  // finished being restored from MongoDB yet.
+  await doc.readyPromise
 
   // Kick off the sync handshake: tell the new client what we have.
   {

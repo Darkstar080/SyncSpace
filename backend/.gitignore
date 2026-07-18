@@ -1,5 +1,6 @@
 node_modules
 .env
+.env.example
 *.log
 # Editor/OS
 .DS_Store
