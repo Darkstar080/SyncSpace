@@ -273,9 +273,13 @@ export default function Whiteboard({ shapes, awareness }) {
   const shapeNodeRefs  = useRef({})
   const transformerRef = useRef(null)
   const [stageSize, setStageSize] = useState({ width: 640, height: 520 })
+<<<<<<< HEAD
   const [textBox, setTextBox]     = useState(null)
   // labelBox: { id, x, y, w, h, text } — floating textarea for editing a shape label
   const [labelBox, setLabelBox]   = useState(null)
+=======
+  const [textBox, setTextBox] = useState(null)
+>>>>>>> 14fed14 (feat: expand whiteboard with shape library support for ellipses, triangles, diamonds, and arrows)
 
   // True when a shape-tool (not a base tool) is active
   const shapeToolActive = SHAPE_LIST.some((s) => s.id === tool)
@@ -303,14 +307,28 @@ export default function Whiteboard({ shapes, awareness }) {
     return () => shapes.unobserveDeep(rerender)
   }, [shapes])
 
+<<<<<<< HEAD
   // Re-render on cursor/awareness changes
+=======
+  // Re-render on awareness changes (other users' cursors moving).
+>>>>>>> 14fed14 (feat: expand whiteboard with shape library support for ellipses, triangles, diamonds, and arrows)
   useEffect(() => {
     const rerender = () => forceRender()
     awareness.on('change', rerender)
     return () => awareness.off('change', rerender)
   }, [awareness])
 
+<<<<<<< HEAD
   // Attach Transformer to selected shape (only TRANSFORMABLE types)
+=======
+  // Keep the Transformer attached to the selected shape — but ONLY if it's
+  // a rect. Lines and text can be selected and moved, but have no
+  // onTransformEnd handler to persist a resize, so attaching the
+  // Transformer to them would let the user drag a resize handle that
+  // silently does nothing useful (and can leave a stale visual scale on
+  // the node until the next re-render). Restricting to 'rect' here keeps
+  // the code honest about what it actually supports.
+>>>>>>> 14fed14 (feat: expand whiteboard with shape library support for ellipses, triangles, diamonds, and arrows)
   useEffect(() => {
     const map  = selectedId ? getShapeMapById(selectedId) : null
     const type = map?.get('type')
@@ -374,17 +392,46 @@ export default function Whiteboard({ shapes, awareness }) {
   // ── Canvas event handlers ─────────────────────────────────────────────────
 
   function handleStageMouseDown(e) {
+<<<<<<< HEAD
     if (e.target === stageRef.current) setSelectedId(null)
     if (tool === 'select') return
+=======
+    // Clicked empty canvas background -> clear selection.
+    if (e.target === stageRef.current) {
+      setSelectedId(null)
+    }
+>>>>>>> 14fed14 (feat: expand whiteboard with shape library support for ellipses, triangles, diamonds, and arrows)
 
     const pos   = pointerPos()
     const id    = `${awareness.clientID}-${Date.now()}`
     const color = awareness.getLocalState()?.user?.color || '#000'
 
+<<<<<<< HEAD
     if (tool === 'text') {
       setTextBox({ x: pos.x, y: pos.y, width: 200, height: 80, text: '' })
       return
     }
+=======
+    const pos   = pointerPos()
+    const id    = `${awareness.clientID}-${Date.now()}`
+    const color = awareness.getLocalState()?.user?.color || '#000'
+
+    if (tool === 'text') {
+  setTextBox({
+    x: pos.x,
+    y: pos.y,
+    width: 200,
+    height: 80,
+    text: "",
+  })
+  return
+}
+
+    const id = `${awareness.clientID}-${Date.now()}`
+    const map = new Y.Map()
+    map.set('id', id)
+    map.set('color', awareness.getLocalState()?.user?.color || '#000')
+>>>>>>> 14fed14 (feat: expand whiteboard with shape library support for ellipses, triangles, diamonds, and arrows)
 
     if (tool === 'pen') {
       const map = new Y.Map()
@@ -430,8 +477,12 @@ export default function Whiteboard({ shapes, awareness }) {
     startPoint.current = null
   }
 
+<<<<<<< HEAD
   // ── Drag ───────────────────────────────────────────────────────────────────
 
+=======
+  // --- Move (drag) a shape: write the new position back into its Y.Map ---
+>>>>>>> 14fed14 (feat: expand whiteboard with shape library support for ellipses, triangles, diamonds, and arrows)
   function handleShapeDragEnd(id, e) {
     const map = getShapeMapById(id)
     if (!map) return
@@ -586,11 +637,70 @@ export default function Whiteboard({ shapes, awareness }) {
             {Array.from(shapes).map((map) => {
               const id   = map.get('id')
               const type = map.get('type')
+<<<<<<< HEAD
               // Pass a dblClick handler only for box shapes in select mode
               const dblClick = selectable && BOX_SHAPES.has(type)
                 ? () => openLabelEditor(id)
                 : undefined
               return renderShape(map, makeCommonProps(id), id === selectedId, dblClick)
+=======
+              const id = map.get('id')
+              const color = map.get('color') || '#111'
+              const isSelected = id === selectedId
+
+              const commonProps = {
+                key: id,
+                ref: (node) => {
+                  if (node) shapeNodeRefs.current[id] = node
+                  else delete shapeNodeRefs.current[id]
+                },
+                draggable: selectable,
+                onClick: () => selectable && setSelectedId(id),
+                onTap: () => selectable && setSelectedId(id),
+                onDragEnd: (e) => handleShapeDragEnd(id, e),
+              }
+
+              if (type === 'line') {
+                return (
+                  <Line
+                    {...commonProps}
+                    points={map.get('points') || []}
+                    stroke={isSelected ? '#89b4fa' : color}
+                    strokeWidth={isSelected ? 3.5 : 2.5}
+                    tension={0}
+                    lineCap="round"
+                    lineJoin="round"
+                  />
+                )
+              }
+              if (type === 'rect') {
+                return (
+                  <Rect
+                    {...commonProps}
+                    x={map.get('x')}
+                    y={map.get('y')}
+                    width={map.get('width')}
+                    height={map.get('height')}
+                    stroke={isSelected ? '#89b4fa' : color}
+                    strokeWidth={isSelected ? 3 : 2}
+                    onTransformEnd={(e) => handleRectTransformEnd(id, e)}
+                  />
+                )
+              }
+              if (type === 'text') {
+                return (
+                  <Text
+                    {...commonProps}
+                    x={map.get('x')}
+                    y={map.get('y')}
+                    text={map.get('text')}
+                    fill={isSelected ? '#89b4fa' : color}
+                    fontSize={16}
+                  />
+                )
+              }
+              return null
+>>>>>>> 14fed14 (feat: expand whiteboard with shape library support for ellipses, triangles, diamonds, and arrows)
             })}
 
             {/* Transformer — attaches to TRANSFORMABLE shapes only */}
@@ -627,8 +737,11 @@ export default function Whiteboard({ shapes, awareness }) {
             )}
           </Layer>
         </Stage>
+<<<<<<< HEAD
 
         {/* Floating textarea for standalone Text tool */}
+=======
+>>>>>>> 14fed14 (feat: expand whiteboard with shape library support for ellipses, triangles, diamonds, and arrows)
         {textBox && (
           <textarea
             autoFocus
