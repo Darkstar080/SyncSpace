@@ -673,7 +673,9 @@ useEffect(() => {
 
                       shapes.push([map])
 
-                      setTextBox(null)
+                      setTimeout(() => {
+                        setTextBox(null)
+                      }, 0)
                     }}
                 style={{
                   position: "absolute",
