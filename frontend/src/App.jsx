@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import JoinScreen from './components/JoinScreen'
 import Whiteboard from './components/Whiteboard'
-import CodeEditor from './components/CodeEditor'
+import CodeEditor from "./components/CodeEditor";
 import { createRoomConnection, destroyRoomConnection, randomColor } from './lib/yjs'
 
 export default function App() {
