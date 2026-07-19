@@ -47,6 +47,7 @@ export default function Whiteboard({ shapes, awareness }) {
   const [fontFamily, setFontFamily] =useState("arial") 
   const [fontColor, setFontColor] = useState("#000000")
   const [showPenPanel, setShowPenPanel] = useState(false)
+  const [showTextPanel, setShowTextPanel] = useState(false)
   const [showMiniPenBar, setShowMiniPenBar] = useState(false)
    const [minimized, setMinimized] = useState(false)
   const [penColor, setPenColor] = useState("#1e1e1e")
@@ -185,7 +186,7 @@ useEffect(() => {
   function updateSelectedText(property, value) {
     if (!selectedId) return
 
-    const map = getShapeMapBy(selectedId)
+    const map = getShapeMapById(selectedId)
     if (!map) return
 
     if (map.get("type") !== "text") return
@@ -360,9 +361,14 @@ useEffect(() => {
 
                   if (t === "pen") {
                     setShowPenPanel(true)
+                    setShowTextPanel(false)
+                  } else if (t === "text") {
+                    setShowPenPanel(false)
+                    setShowTextPanel(true)
                   } else {
                     setShowPenPanel(false)
-                  }
+                    setShowTextPanel(false)
+                  }                  
                 }}
               >
                 {t}
@@ -566,6 +572,86 @@ useEffect(() => {
             )}
           </Layer>
         </Stage>
+        {showTextPanel && (
+  <div
+    style={{
+      position: "absolute",
+      left: 20,
+      top: 70,
+      width: 250,
+      background: "#fff",
+      borderRadius: "16px",
+      padding: "18px",
+      boxShadow: "0 4px 15px rgba(0,0,0,0.15)",
+      border: "1px solid #ddd",
+      zIndex: 1000,
+    }}
+  >
+    <h3 style={{ marginBottom: 15 }}>Text Settings</h3>
+
+    <div style={{ marginBottom: 15 }}>
+      <div style={{ marginBottom: 5 }}>Font Family</div>
+
+      <select
+        value={fontFamily}
+        style={{
+          width: "100%",
+          padding: "8px",
+          borderRadius: "8px",
+        }}
+        onChange={(e) => {
+          setFontFamily(e.target.value)
+          updateSelectedText("fontFamily", e.target.value)
+        }}
+      >
+        <option value="Arial">Arial</option>
+        <option value="Verdana">Verdana</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Tahoma">Tahoma</option>
+        <option value="Courier New">Courier New</option>
+        <option value="Times New Roman">Times New Roman</option>
+      </select>
+    </div>
+
+    <div style={{ marginBottom: 15 }}>
+      <div style={{ marginBottom: 5 }}>Font Size</div>
+
+      <input
+        type="range"
+        min="8"
+        max="72"
+        value={fontSize}
+        style={{ width: "100%" }}
+        onChange={(e) => {
+          const value = Number(e.target.value)
+          setFontSize(value)
+          updateSelectedText("fontSize", value)
+        }}
+      />
+
+      <div>{fontSize}px</div>
+    </div>
+
+    <div>
+      <div style={{ marginBottom: 5 }}>Font Color</div>
+
+      <input
+        type="color"
+        value={fontColor}
+        style={{
+          width: "100%",
+          height: "40px",
+          border: "none",
+        }}
+        onChange={(e) => {
+          setFontColor(e.target.value)
+          updateSelectedText("color", e.target.value)
+        }}
+      />
+    </div>
+  </div>
+)}
+
           {showPenPanel && (
             <div ref={penPanelRef}>
               <PenPanel
