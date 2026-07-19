@@ -1,4 +1,4 @@
-const OutputPanel = ({ isOpen, onClose }) => {
+const OutputPanel = ({ isOpen, onClose, output }) => {
   if (!isOpen) return null;
 
   return (
@@ -15,9 +15,9 @@ const OutputPanel = ({ isOpen, onClose }) => {
         </button>
       </div>
 
-      <div className="flex-1 overflow-auto p-4 text-sm font-mono text-white">
-        Output will appear here...
-      </div>
+        <div className="flex-1 overflow-auto p-4 text-sm font-mono text-white whitespace-pre-wrap">
+          {output || "Output will appear here..."}
+        </div>
     </div>
   );
 };

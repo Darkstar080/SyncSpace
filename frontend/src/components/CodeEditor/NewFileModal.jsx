@@ -2,7 +2,6 @@ import { useState } from "react";
 import { X } from "lucide-react";
 
 const LANGUAGES = [
-  { label: "JavaScript", value: "javascript", extension: ".js" },
   { label: "TypeScript", value: "typescript", extension: ".ts" },
   { label: "Python", value: "python", extension: ".py" },
   { label: "Java", value: "java", extension: ".java" },
@@ -12,7 +11,7 @@ const LANGUAGES = [
 
 export default function NewFileModal({ open, onClose, onCreate }) {
   const [fileName, setFileName] = useState("main");
-  const [language, setLanguage] = useState("javascript");
+ const [language, setLanguage] = useState("plaintext");
 
   if (!open) return null;
 

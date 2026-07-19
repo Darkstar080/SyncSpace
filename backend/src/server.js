@@ -4,11 +4,13 @@ import http from 'http'
 import { WebSocketServer } from 'ws'
 import { setupWSConnection, getRoomStats } from './rooms.js'
 import { initPersistence, isAvailable, closePersistence } from './persistence.js'
+import runRoute from "./routes/run.js";
 
 const PORT = process.env.PORT || 4000
 
 const app = express()
 app.use(cors())
+app.use(express.json())
 
 app.get('/health', (req, res) => {
   res.json({
@@ -16,6 +18,7 @@ app.get('/health', (req, res) => {
     persistence: isAvailable() ? 'connected' : 'unavailable (in-memory only)',
   })
 })
+app.use("/run", runRoute);
 
 // Handy while building the frontend: see which rooms are live and how
 // many clients are in each, without opening browser dev tools.

@@ -10,10 +10,11 @@ import NewFileModal from "./NewFileModal";
 export default function CodeEditor({ codeText, awareness }) {
   const bindingRef = useRef(null)
   const fileInputRef = useRef(null)
-  const [language, setLanguage] = useState("javascript")
+  const [language, setLanguage] = useState("python")
   const [isOutputOpen, setIsOutputOpen] = useState(false);
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [currentFile, setCurrentFile] = useState(null);
+  const [output, setOutput] = useState("");
 
 
   function handleMount(editor) {
@@ -30,7 +31,17 @@ export default function CodeEditor({ codeText, awareness }) {
       new Set([editor]),
       awareness
     )
-  }
+      if (codeText.length === 0) {
+    codeText.insert(
+      0,
+      `# Welcome to SyncSpace
+
+      # Create a new file or open an existing file from the File menu.
+      # Then click Run to execute your code.
+      `
+        );
+      }
+        }
 
    function handleCreateFile(data) {
    const extensionMap = {
@@ -53,6 +64,56 @@ export default function CodeEditor({ codeText, awareness }) {
 
       // Clear the collaborative editor
       codeText.delete(0, codeText.length);
+
+        const templates = {
+          python:
+        `# Welcome to SyncSpace
+        # Create/Open a file and click Run to execute your code.
+
+        `,
+
+          java:
+        `// Welcome to SyncSpace
+        // Create/Open a file and click Run to execute your code.
+
+        public class Main {
+
+        }
+        `,
+
+          cpp:
+        `// Welcome to SyncSpace
+        // Create/Open a file and click Run to execute your code.
+
+        #include <iostream>
+        using namespace std;
+
+        int main() {
+
+            return 0;
+        }
+        `,
+
+          c:
+        `// Welcome to SyncSpace
+        // Create/Open a file and click Run to execute your code.
+
+        #include <stdio.h>
+
+        int main() {
+
+            return 0;
+        }
+        `,
+
+          typescript:
+        `// Welcome to SyncSpace
+        // Create/Open a file and click Run to execute your code.
+
+        `,
+        };
+
+        codeText.insert(0, templates[data.language] || "");
 
       setShowNewFileModal(false);
 
@@ -90,20 +151,70 @@ export default function CodeEditor({ codeText, awareness }) {
         event.target.value = "";
       }
 
+     
+     // This function handles the "Run" button click event. It retrieves the current code from the editor, logs the selected language and code to the console, and opens the output panel. 
+      async function handleRun() {
+         if (!currentFile) {
+        setIsOutputOpen(true);
+        setOutput("Please create a new file or open an existing file first.");
+        return;
+      }
+        const code = codeText.toString().trim();
+        if (!code) {
+          setIsOutputOpen(true);
+          setOutput("The current file is empty.");
+          return;
+        }
+
+        setIsOutputOpen(true);
+
+        console.log("Sending Language:", language);
+        console.log("Sending Code:", code);
+
+        try {
+          const response = await fetch("http://localhost:4000/run", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              language,
+              code,
+            }),
+          });
+
+          const data = await response.json();
+
+          console.log("Response:", data);
+          if (data.status === "success") {
+              setOutput(data.output);
+            } else {
+              setOutput(data.error || "Execution failed.");
+            }
+        } catch (error) {
+          console.error(error);
+        }
+      }
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       
       <div className="flex items-center justify-between px-4 py-2.5 bg-bg-panel border-b border-border flex-shrink-0">
-     <span className="font-medium text-text">
-          {currentFile ? currentFile.name : "Code Editor"}
-        </span>
-          <EditorToolbar
-              language={language}
-              setLanguage={setLanguage}
-              onRun={() => setIsOutputOpen(true)}
-              onNewFile={() => setShowNewFileModal(true)}
-              onOpenFile={handleOpenFileClick}
-          />
+        <div className="flex flex-col">
+          <span className="font-medium text-text">
+            {currentFile ? currentFile.name : "Code Editor"}
+          </span>
+
+          {currentFile && (
+            <span className="text-xs text-gray-400">
+              {currentFile.language.toUpperCase()}
+            </span>
+          )}
+        </div>
+        <EditorToolbar
+          onRun={handleRun}
+          onNewFile={() => setShowNewFileModal(true)}
+          onOpenFile={handleOpenFileClick}
+        />
         </div>
         <div className="flex-1 min-h-0">
             <Editor
@@ -120,6 +231,7 @@ export default function CodeEditor({ codeText, awareness }) {
 
         <OutputPanel
           isOpen={isOutputOpen}
+          output={output}
           onClose={() => setIsOutputOpen(false)}
         />
         <NewFileModal

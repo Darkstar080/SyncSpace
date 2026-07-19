@@ -1,9 +1,9 @@
 import { FolderOpen, Save, Settings, Play, ChevronDown, FilePlus, Folder } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
-import LanguageSelector from "./LanguageSelector";
 
 
-const EditorToolbar = ({ language, setLanguage, onRun,  onNewFile, onOpenFile,  }) => {
+
+const EditorToolbar = ({ onRun,  onNewFile, onOpenFile,  }) => {
   const [showFileMenu, setShowFileMenu] = useState(false);
   const fileMenuRef = useRef(null);
 //this is a useEffect hook that adds an event listener to the document to handle clicks outside of the file menu. When a click occurs outside of the file menu, it sets the showFileMenu state to false, effectively closing the menu. The event listener is cleaned up when the component unmounts to prevent memory leaks.
@@ -21,10 +21,6 @@ const EditorToolbar = ({ language, setLanguage, onRun,  onNewFile, onOpenFile,  
   return (
    <div className="flex items-center gap-3">
         <div className="flex items-center gap-3">
-        <LanguageSelector
-            language={language}
-            setLanguage={setLanguage}
-            />
 
             <div className="relative" ref={fileMenuRef}>
               <button
