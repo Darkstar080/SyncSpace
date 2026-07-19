@@ -43,6 +43,9 @@ export default function Whiteboard({ shapes, awareness }) {
   const transformerRef = useRef(null)
   const [stageSize, setStageSize] = useState({ width: 640, height: 520 })
   const [textBox, setTextBox] = useState(null)
+  const [fontSize, setFontSize] = useState(16)
+  const [fontFamily, setFontFamily] =useState("arial") 
+  const [fontColor, setFontColor] = useState("#000000")
   const [showPenPanel, setShowPenPanel] = useState(false)
   const [showMiniPenBar, setShowMiniPenBar] = useState(false)
    const [minimized, setMinimized] = useState(false)
@@ -177,6 +180,17 @@ useEffect(() => {
     if (index === -1) return
     shapes.delete(index, 1)
     setSelectedId(null)
+  }
+
+  function updateSelectedText(property, value) {
+    if (!selectedId) return
+
+    const map = getShapeMapBy(selectedId)
+    if (!map) return
+
+    if (map.get("type") !== "text") return
+
+    map.set(property, value)
   }
 
   function pointerPos() {
@@ -355,6 +369,49 @@ useEffect(() => {
               </button>
             ))}
           </div>
+
+          {tool === "text" && (
+  <div className="flex items-center gap-2">
+
+    <select
+      value={fontFamily}
+      onChange={(e) => {
+        setFontFamily(e.target.value)
+        updateSelectedText("fontFamily", e.target.value)
+      }}
+    >
+      <option value="Arial">Arial</option>
+      <option value="Verdana">Verdana</option>
+      <option value="Georgia">Georgia</option>
+      <option value="Tahoma">Tahoma</option>
+      <option value="Courier New">Courier New</option>
+      <option value="Times New Roman">Times New Roman</option>
+    </select>
+
+    <input
+      type="number"
+      min="8"
+      max="72"
+      value={fontSize}
+      onChange={(e) => {
+        const value = Number(e.target.value)
+        setFontSize(value)
+        updateSelectedText("fontSize", value)
+      }}
+      style={{ width: "60px" }}
+    />
+
+    <input
+      type="color"
+      value={fontColor}
+      onChange={(e) => {
+        setFontColor(e.target.value)
+        updateSelectedText("color", e.target.value)
+      }}
+    />
+
+  </div>
+)}
           <div className="w-px h-5 bg-border" />
           <button
             className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
@@ -458,11 +515,13 @@ useEffect(() => {
                 return (
                   <Text
                     {...commonProps}
-                    x={map.get('x')}
-                    y={map.get('y')}
-                    text={map.get('text')}
-                    fill={isSelected ? '#89b4fa' : color}
-                    fontSize={16}
+                    x={map.get("x")}
+                    y={map.get("y")}
+                    text={map.get("text")}
+                    fill={isSelected ? "#89b4fa" : map.get("color")}
+                    fontSize={map.get("fontSize") || 16}
+
+                    fontFamily={map.get("fontFamily") || "Arial"}
                   />
                 )
               }
@@ -563,7 +622,9 @@ useEffect(() => {
                       map.set("x", textBox.x)
                       map.set("y", textBox.y)
                       map.set("text", textBox.text)
-                      map.set("color", awareness.getLocalState()?.user?.color || "#000")
+                      map.set("fontSize", fontSize)
+                      map.set("fontFamily", fontFamily)
+                      map.set("color", fontColor)
 
                       shapes.push([map])
 
