@@ -45,6 +45,13 @@ class WSSharedDoc extends Y.Doc {
     this.awareness = new awarenessProtocol.Awareness(this)
     this.awareness.setLocalState(null)
 
+    // Maps each raw WebSocket connection -> the set of real awareness
+    // client IDs it has ever announced (cursor/name/color). This is what
+    // lets us correctly remove ONLY that connection's presence data the
+    // instant it disconnects — see closeConnection below.
+    /** @type {Map<import('ws').WebSocket, Set<number>>} */
+    this._connControlledIds = new Map()
+
     // Tracks the chain of in-progress saves for this room. Chained (not
     // just "the latest save") so saves complete in order, and so we have
     // one promise that means "everything saved so far has truly landed."
@@ -65,6 +72,19 @@ class WSSharedDoc extends Y.Doc {
       )
       const message = encoding.toUint8Array(encoder)
       this.conns.forEach((conn) => send(conn, message))
+
+      // `origin` is the connection that sent this awareness update (see
+      // the MESSAGE_AWARENESS case in setupWSConnection, which passes
+      // `conn` as the origin). Record which real client IDs belong to it.
+      if (origin && this.conns.has(origin)) {
+        let ids = this._connControlledIds.get(origin)
+        if (!ids) {
+          ids = new Set()
+          this._connControlledIds.set(origin, ids)
+        }
+        added.concat(updated).forEach((id) => ids.add(id))
+        removed.forEach((id) => ids.delete(id))
+      }
     })
 
     this.on('update', (update, origin) => {
@@ -126,11 +146,20 @@ async function closeConnection(conn) {
   const doc = conn.doc
   if (doc) {
     doc.conns.delete(conn)
-    awarenessProtocol.removeAwarenessStates(
-      doc.awareness,
-      [conn.clientId],
-      null
-    )
+
+    // Remove exactly the presence entries THIS connection actually
+    // announced — not a made-up ID. This is what makes a disconnected
+    // user's cursor and name disappear immediately, instead of only
+    // after Yjs's own ~30s stale-state fallback eventually clears it.
+    const controlledIds = doc._connControlledIds.get(conn)
+    if (controlledIds && controlledIds.size > 0) {
+      awarenessProtocol.removeAwarenessStates(
+        doc.awareness,
+        Array.from(controlledIds),
+        null
+      )
+    }
+    doc._connControlledIds.delete(conn)
     if (doc.conns.size === 0) {
       // Wait for every save triggered during this room's lifetime to
       // actually finish before freeing it from memory. This is the fix
@@ -167,7 +196,6 @@ export async function setupWSConnection(conn, docName) {
   conn.binaryType = 'arraybuffer'
   const doc = getRoom(docName)
   conn.doc = doc
-  conn.clientId = doc.awareness.clientID + Math.random() // uniqueness per socket, refined below
   doc.conns.add(conn)
 
   conn.on('message', (message) => {
