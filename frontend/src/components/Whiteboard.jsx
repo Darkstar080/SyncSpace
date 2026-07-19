@@ -376,48 +376,7 @@ useEffect(() => {
             ))}
           </div>
 
-          {tool === "text" && (
-  <div className="flex items-center gap-2">
 
-    <select
-      value={fontFamily}
-      onChange={(e) => {
-        setFontFamily(e.target.value)
-        updateSelectedText("fontFamily", e.target.value)
-      }}
-    >
-      <option value="Arial">Arial</option>
-      <option value="Verdana">Verdana</option>
-      <option value="Georgia">Georgia</option>
-      <option value="Tahoma">Tahoma</option>
-      <option value="Courier New">Courier New</option>
-      <option value="Times New Roman">Times New Roman</option>
-    </select>
-
-    <input
-      type="number"
-      min="8"
-      max="72"
-      value={fontSize}
-      onChange={(e) => {
-        const value = Number(e.target.value)
-        setFontSize(value)
-        updateSelectedText("fontSize", value)
-      }}
-      style={{ width: "60px" }}
-    />
-
-    <input
-      type="color"
-      value={fontColor}
-      onChange={(e) => {
-        setFontColor(e.target.value)
-        updateSelectedText("color", e.target.value)
-      }}
-    />
-
-  </div>
-)}
           <div className="w-px h-5 bg-border" />
           <button
             className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
