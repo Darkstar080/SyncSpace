@@ -209,10 +209,14 @@ useEffect(() => {
       setSelectedId(null)
     }
 
-    if (tool === 'select') return // drawing tools only, below
+    if (tool === "select") return; // drawing tools only, below
+
+    if (textBox) return;
 
     const pos = pointerPos()
     if (tool === 'text') {
+      if (textBox) return;
+
   setTextBox({
     x: pos.x,
     y: pos.y,
@@ -673,9 +677,9 @@ useEffect(() => {
 
                       shapes.push([map])
 
-                      setTimeout(() => {
+                      requestAnimationFrame(() => {
                         setTextBox(null)
-                      }, 0)
+                      })
                     }}
                 style={{
                   position: "absolute",
