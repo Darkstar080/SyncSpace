@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { Stage, Layer, Line, Rect, Text, Circle, Label, Tag, Transformer } from 'react-konva'
+import { Stage, Layer, Line, Rect, Text, Circle, Label, Tag, Transformer, Ellipse, Arrow, Star, Group } from 'react-konva'
 import * as Y from 'yjs'
 import PenPanel from "./PenPanel"
 import MiniPenBar from "./MiniPenBar"
+import ShapePanel from "./ShapePanel"
 
-const TOOLS = ['select', 'pen', 'rect', 'text']
+const TOOLS = ['select', 'pen', 'text']
 
 /**
  * IMPORTANT PATTERN — read this before touching this file:
@@ -45,6 +46,11 @@ export default function Whiteboard({ shapes, awareness }) {
   const [textBox, setTextBox] = useState(null)
   const [showPenPanel, setShowPenPanel] = useState(false)
   const [showMiniPenBar, setShowMiniPenBar] = useState(false)
+  const [showShapePanel, setShowShapePanel] = useState(false)
+  const [shapePanelPosition, setShapePanelPosition] = useState({
+      x: 350,
+      y: 70,
+  })
    const [minimized, setMinimized] = useState(false)
   const [penColor, setPenColor] = useState("#1e1e1e")
   const [strokeWidth, setStrokeWidth] = useState(2)
@@ -124,7 +130,7 @@ useEffect(() => {
   // the code honest about what it actually supports.
   useEffect(() => {
     const map = selectedId ? getShapeMapById(selectedId) : null
-    const node = selectedId && map?.get('type') === 'rect'
+    const node = selectedId && ['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'straight_line', 'arrow', 'text'].includes(map?.get('type'))
       ? shapeNodeRefs.current[selectedId]
       : null
     if (transformerRef.current) {
@@ -211,24 +217,28 @@ useEffect(() => {
     const id = `${awareness.clientID}-${Date.now()}`
     const map = new Y.Map()
     map.set('id', id)
+    const isLaser = tool === 'pen' && penType === 'laser'
     map.set(
       "color",
-      penType === "laser" ? "#ff2d2d" : penColor
+      isLaser ? "#ff2d2d" : penColor
     )
     map.set('strokeWidth', strokeWidth)
     map.set("opacity", opacity)
-    map.set("penType", penType)
+    map.set("penType", isLaser ? "laser" : "normal")
     map.set("createdAt", Date.now())
 
     if (tool === 'pen') {
       map.set('type', 'line')
       map.set('points', [pos.x, pos.y])
-    } else if (tool === 'rect') {
-      map.set('type', 'rect')
+    } else if (['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star'].includes(tool)) {
+      map.set('type', tool)
       map.set('x', pos.x)
       map.set('y', pos.y)
       map.set('width', 0)
       map.set('height', 0)
+    } else if (['line', 'arrow'].includes(tool)) {
+      map.set('type', tool === 'line' ? 'straight_line' : 'arrow')
+      map.set('points', [pos.x, pos.y, pos.x, pos.y])
     }
 
     shapes.push([map])
@@ -250,10 +260,13 @@ useEffect(() => {
     if (map.get('type') === 'line') {
       const points = map.get('points')
       map.set('points', [...points, pos.x, pos.y])
-    } else if (map.get('type') === 'rect') {
+    } else if (['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star'].includes(map.get('type'))) {
       const start = startPoint.current
       map.set('width', pos.x - start.x)
       map.set('height', pos.y - start.y)
+    } else if (['straight_line', 'arrow'].includes(map.get('type'))) {
+      const start = startPoint.current
+      map.set('points', [start.x, start.y, pos.x, pos.y])
     }
   }
   // When the user releases the mouse button, if they were drawing a "laser" line, remove it after a short delay. This creates a temporary
@@ -283,23 +296,48 @@ useEffect(() => {
     const map = getShapeMapById(id)
     if (!map) return
     const node = e.target
-    const type = map.get('type')
+    map.set('x', node.x())
+    map.set('y', node.y())
+  }
 
-    if (type === 'line') {
-      // Lines are stored as a flat [x1,y1,x2,y2,...] list. Dragging the
-      // whole line means shifting every point by however far it moved,
-      // then resetting the node's own x/y back to 0 so we don't
-      // double-apply the offset next render.
-      const dx = node.x()
-      const dy = node.y()
-      const oldPoints = map.get('points')
-      const newPoints = oldPoints.map((v, i) => (i % 2 === 0 ? v + dx : v + dy))
-      map.set('points', newPoints)
-      node.position({ x: 0, y: 0 })
-    } else {
-      map.set('x', node.x())
-      map.set('y', node.y())
+  // --- Double click to add/edit text on a shape ---
+  function handleShapeDblClick(id, e) {
+    if (tool !== 'select') return
+    const map = getShapeMapById(id)
+    if (!map) return
+
+    const type = map.get('type')
+    if (['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'text'].includes(type)) {
+      const node = e.currentTarget
+      const absPos = node.getAbsolutePosition()
+
+      setTextBox({
+        id: id,
+        x: absPos.x,
+        y: absPos.y,
+        width: Math.max(100, map.get('width') || node.width() || 100),
+        height: Math.max(40, map.get('height') || node.height() || 40),
+        text: map.get('text') || '',
+      })
     }
+  }
+
+  // --- Resize a line via the Transformer handles ---
+  function handleLineTransformEnd(id, e) {
+    const map = getShapeMapById(id)
+    if (!map) return
+    const node = e.target
+    const scaleX = node.scaleX()
+    const scaleY = node.scaleY()
+
+    map.set('x', node.x())
+    map.set('y', node.y())
+    map.set('rotation', node.rotation())
+    map.set('scaleX', (map.get('scaleX') || 1) * scaleX)
+    map.set('scaleY', (map.get('scaleY') || 1) * scaleY)
+    
+    node.scaleX(1)
+    node.scaleY(1)
   }
 
   // --- Resize a rectangle via the Transformer handles ---
@@ -310,13 +348,16 @@ useEffect(() => {
     const scaleX = node.scaleX()
     const scaleY = node.scaleY()
 
-    // Konva's Transformer resizes by scaling, not by changing width/height
-    // directly. Convert that scale into real width/height, then reset
-    // scale to 1 so it doesn't compound on the next resize.
     map.set('x', node.x())
     map.set('y', node.y())
-    map.set('width', Math.max(5, node.width() * scaleX))
-    map.set('height', Math.max(5, node.height() * scaleY))
+    map.set('rotation', node.rotation())
+    if (map.get('type') === 'text') {
+      map.set('scaleX', (map.get('scaleX') || 1) * scaleX)
+      map.set('scaleY', (map.get('scaleY') || 1) * scaleY)
+    } else {
+      map.set('width', Math.max(5, (map.get('width') || node.width()) * scaleX))
+      map.set('height', Math.max(5, (map.get('height') || node.height()) * scaleY))
+    }
     node.scaleX(1)
     node.scaleY(1)
   }
@@ -332,7 +373,7 @@ useEffect(() => {
       <div className="flex items-center justify-between px-4 py-2.5 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0">
         <span className="font-medium text-text">Whiteboard</span>
         <div className="flex items-center gap-2">
-          <div className="flex gap-0.5 bg-bg-deep rounded-lg p-1">
+          <div className="flex gap-0.5 bg-bg-deep rounded-lg p-1 items-center">
             {TOOLS.map((t) => (
               <button
                 key={t}
@@ -346,14 +387,34 @@ useEffect(() => {
 
                   if (t === "pen") {
                     setShowPenPanel(true)
+                    setShowMiniPenBar(false)
+                    setShowShapePanel(false)
                   } else {
                     setShowPenPanel(false)
+                    setShowMiniPenBar(false)
                   }
                 }}
               >
                 {t}
               </button>
             ))}
+            <button
+              className={`px-2.5 py-1 rounded-md text-xs capitalize cursor-pointer transition-colors ${
+                ['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'arrow'].includes(tool)
+                  ? 'bg-accent text-bg-deep font-semibold'
+                  : 'bg-transparent text-text-dim hover:text-text'
+              }`}
+              onClick={() => {
+                setShowShapePanel(!showShapePanel)
+                setShowPenPanel(false)
+                setShowMiniPenBar(false)
+                if (!['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'arrow'].includes(tool)) {
+                  setTool('rect')
+                }
+              }}
+            >
+              Shapes
+            </button>
           </div>
           <div className="w-px h-5 bg-border" />
           <button
@@ -375,7 +436,7 @@ useEffect(() => {
               className="px-2.5 py-1 rounded-md text-xs bg-transparent border border-accent-2 text-accent-2 hover:bg-accent-2 hover:text-bg-deep"
               onClick={() => deleteShape(selectedId)}
             >
-              delete
+               delete
             </button>
           )}
         </div>
@@ -392,6 +453,7 @@ useEffect(() => {
           onMouseMove={handleStageMouseMove}
           onMouseUp={handleStageMouseUp}
           className="bg-white"
+          style={{ cursor: tool === 'pen' && penType === 'laser' ? 'pointer' : 'default' }}
         >
           <Layer>
             {Array.from(shapes).map((map) => {
@@ -406,63 +468,114 @@ useEffect(() => {
                   if (node) shapeNodeRefs.current[id] = node
                   else delete shapeNodeRefs.current[id]
                 },
+                x: map.get('x') || 0,
+                y: map.get('y') || 0,
+                rotation: map.get('rotation') || 0,
+                scaleX: map.get('scaleX') || 1,
+                scaleY: map.get('scaleY') || 1,
                 draggable: selectable,
                 onClick: () => selectable && setSelectedId(id),
                 onTap: () => selectable && setSelectedId(id),
                 onDragEnd: (e) => handleShapeDragEnd(id, e),
+                onDblClick: (e) => handleShapeDblClick(id, e),
+                onDblTap: (e) => handleShapeDblClick(id, e),
               }
 
-              if (type === 'line') {
+              if (type === 'line' || type === 'straight_line' || type === 'arrow') {
+                const strokeProps = {
+                  stroke: isSelected ? '#89b4fa' : color,
+                  strokeWidth: map.get("penType") === "laser"
+                    ? map.get("strokeWidth") + 1
+                    : (isSelected ? map.get("strokeWidth") + 1 : map.get("strokeWidth")),
+                  opacity: (map.get("opacity") ?? 100) / 100,
+                  shadowColor: map.get("penType") === "laser" ? "#ff0000" : undefined,
+                  shadowBlur: map.get("penType") === "laser" ? 12 : 0,
+                  shadowOpacity: map.get("penType") === "laser" ? 1 : 0,
+                  shadowEnabled: map.get("penType") === "laser"
+                };
+
+                if (type === 'arrow') {
+                  return (
+                    <Arrow
+                      {...commonProps}
+                      {...strokeProps}
+                      points={map.get('points') || []}
+                      pointerLength={10}
+                      pointerWidth={10}
+                      onTransformEnd={(e) => handleLineTransformEnd(id, e)}
+                    />
+                  )
+                }
+
                 return (
                   <Line
                     {...commonProps}
+                    {...strokeProps}
                     points={map.get('points') || []}
-                    stroke={isSelected ? '#89b4fa' : color}
-                    strokeWidth={isSelected ? map.get("strokeWidth") + 1 : map.get("strokeWidth")}
-                    opacity={(map.get("opacity") ?? 100) / 100}
                     tension={0}
                     lineCap="round"
                     lineJoin="round"
-                    shadowColor={map.get("penType") === "laser" ? "#ff0000" : undefined}
-                    shadowBlur={map.get("penType") === "laser" ? 12 : 0}
-                    shadowOpacity={map.get("penType") === "laser" ? 1 : 0}
-                    shadowEnabled={map.get("penType") === "laser"}
-
-                    strokeWidth={
-                      map.get("penType") === "laser"
-                        ? map.get("strokeWidth") + 1
-                        : (isSelected ? map.get("strokeWidth") + 1 : map.get("strokeWidth"))
-                    }
+                    onTransformEnd={(e) => handleLineTransformEnd(id, e)}
                   />
                 )
               }
-              if (type === 'rect') {
+              if (['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star'].includes(type)) {
+                const shapeProps = {
+                  stroke: map.get("penType") === "laser" ? "#ff0000" : (isSelected ? "#89b4fa" : color),
+                  strokeWidth: isSelected ? 3 : 2,
+                };
+                
+                const w = map.get('width') || 0;
+                const h = map.get('height') || 0;
+                const sx = map.get('x') || 0;
+                const sy = map.get('y') || 0;
+                const absW = Math.abs(w);
+                const absH = Math.abs(h);
+
+                let innerNode = null;
+                if (type === 'rect') {
+                  innerNode = <Rect {...shapeProps} width={w} height={h} />
+                } else if (type === 'circle') {
+                  innerNode = <Circle {...shapeProps} x={w/2} y={h/2} radius={Math.max(absW, absH) / 2} />
+                } else if (type === 'ellipse') {
+                  innerNode = <Ellipse {...shapeProps} x={w/2} y={h/2} radiusX={absW / 2} radiusY={absH / 2} />
+                } else if (type === 'triangle') {
+                  const pts = [w/2, 0, w, h, 0, h];
+                  innerNode = <Line {...shapeProps} points={pts} closed={true} />
+                } else if (type === 'diamond') {
+                  const pts = [w/2, 0, w, h/2, w/2, h, 0, h/2];
+                  innerNode = <Line {...shapeProps} points={pts} closed={true} />
+                } else if (type === 'star') {
+                  innerNode = <Star {...shapeProps} x={w/2} y={h/2} numPoints={5} innerRadius={Math.max(absW, absH) / 4} outerRadius={Math.max(absW, absH) / 2} />
+                }
+
                 return (
-                  <Rect
-                    {...commonProps}
-                    x={map.get('x')}
-                    y={map.get('y')}
-                    width={map.get('width')}
-                    height={map.get('height')}
-                    stroke={
-                          map.get("penType") === "laser"
-                            ? "#ff0000"
-                            : (isSelected ? "#89b4fa" : color)
-                        }
-                    strokeWidth={isSelected ? 3 : 2}
-                    onTransformEnd={(e) => handleRectTransformEnd(id, e)}
-                  />
+                  <Group {...commonProps} width={w} height={h} onTransformEnd={(e) => handleRectTransformEnd(id, e)}>
+                    {innerNode}
+                    {map.get('text') && (
+                      <Text
+                        text={map.get('text')}
+                        fill={isSelected ? '#89b4fa' : color}
+                        fontSize={16}
+                        width={absW}
+                        height={absH}
+                        x={Math.min(0, w)}
+                        y={Math.min(0, h)}
+                        align="center"
+                        verticalAlign="middle"
+                      />
+                    )}
+                  </Group>
                 )
               }
               if (type === 'text') {
                 return (
                   <Text
                     {...commonProps}
-                    x={map.get('x')}
-                    y={map.get('y')}
                     text={map.get('text')}
                     fill={isSelected ? '#89b4fa' : color}
                     fontSize={16}
+                    onTransformEnd={(e) => handleRectTransformEnd(id, e)}
                   />
                 )
               }
@@ -474,7 +587,7 @@ useEffect(() => {
                 limitation, not an oversight: see README). */}
             <Transformer
               ref={transformerRef}
-              rotateEnabled={false}
+              rotateEnabled={true}
               flipEnabled={false}
               boundBoxFunc={(oldBox, newBox) =>
                 newBox.width < 5 || newBox.height < 5 ? oldBox : newBox
@@ -541,6 +654,15 @@ useEffect(() => {
               setPosition={setPenPanelPosition}
             />
           )}
+          {showShapePanel && (
+            <ShapePanel
+              tool={tool}
+              setTool={(t) => setTool(t)}
+              position={shapePanelPosition}
+              setPosition={setShapePanelPosition}
+              onClose={() => setShowShapePanel(false)}
+            />
+          )}
         {textBox && (
               <textarea
              
@@ -552,20 +674,32 @@ useEffect(() => {
                   })
                 }
                 onBlur={() => {
-                      if (!textBox.text.trim()) {
+                      if (!textBox.text.trim() && !textBox.id) {
                         setTextBox(null)
                         return
                       }
 
-                      const map = new Y.Map()
-                      map.set("id", `${awareness.clientID}-${Date.now()}`)
-                      map.set("type", "text")
-                      map.set("x", textBox.x)
-                      map.set("y", textBox.y)
-                      map.set("text", textBox.text)
-                      map.set("color", awareness.getLocalState()?.user?.color || "#000")
+                      if (textBox.id) {
+                        const map = getShapeMapById(textBox.id)
+                        if (map) {
+                          if (!textBox.text.trim() && map.get('type') === 'text') {
+                            const index = getShapeIndexById(textBox.id)
+                            if (index !== -1) shapes.delete(index, 1)
+                          } else {
+                            map.set('text', textBox.text)
+                          }
+                        }
+                      } else {
+                        const map = new Y.Map()
+                        map.set("id", `${awareness.clientID}-${Date.now()}`)
+                        map.set("type", "text")
+                        map.set("x", textBox.x)
+                        map.set("y", textBox.y)
+                        map.set("text", textBox.text)
+                        map.set("color", awareness.getLocalState()?.user?.color || "#000")
 
-                      shapes.push([map])
+                        shapes.push([map])
+                      }
 
                       setTextBox(null)
                     }}
