@@ -35,6 +35,7 @@ export default function Whiteboard({ shapes, awareness }) {
   const [, forceRender] = useReducer((x) => x + 1, 0)
   const [tool, setTool] = useState('select')
   const [selectedId, setSelectedId] = useState(null)
+  const [background, setBackground] = useState("#ffffff")
   const drawingShapeId = useRef(null)
   const startPoint = useRef(null)
   const stageRef = useRef(null)
@@ -380,6 +381,16 @@ useEffect(() => {
             ))}
           </div>
 
+          <select
+  value={background}
+  onChange={(e) => setBackground(e.target.value)}
+  className="px-2 py-1 rounded-md text-xs border border-border bg-white text-black"
+>
+  <option value="#ffffff">White</option>
+  <option value="#000000">Black</option>
+  <option value="#008000">Green</option>
+</select>
+
 
           <div className="w-px h-5 bg-border" />
           <button
@@ -417,7 +428,7 @@ useEffect(() => {
           onMouseDown={handleStageMouseDown}
           onMouseMove={handleStageMouseMove}
           onMouseUp={handleStageMouseUp}
-          className="bg-white"
+          style={{ background}}
         >
           <Layer>
             {Array.from(shapes).map((map) => {
