@@ -7,6 +7,7 @@ import NewFileModal from "./NewFileModal";
 
 
 
+
 export default function CodeEditor({ codeText, awareness }) {
   const bindingRef = useRef(null)
   const fileInputRef = useRef(null)

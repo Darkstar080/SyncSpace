@@ -1,23 +1,41 @@
 import { FolderOpen, Save, Settings, Play, ChevronDown, FilePlus, Folder } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import EditorSettings from "./EditorSettings";
 
 
 
-const EditorToolbar = ({ onRun,  onNewFile, onOpenFile,  }) => {
+const EditorToolbar = ({ onRun,  onNewFile, onOpenFile, onOpenSettings  }) => {
   const [showFileMenu, setShowFileMenu] = useState(false);
   const fileMenuRef = useRef(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const settingsMenuRef = useRef(null);
 //this is a useEffect hook that adds an event listener to the document to handle clicks outside of the file menu. When a click occurs outside of the file menu, it sets the showFileMenu state to false, effectively closing the menu. The event listener is cleaned up when the component unmounts to prevent memory leaks.
   useEffect(() => {
-    function handleClickOutside(e) {
-      if (fileMenuRef.current && !fileMenuRef.current.contains(e.target)) {
-        setShowFileMenu(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
+  function handleClickOutside(e) {
+  console.log("Clicked:", e.target);
+
+  if (
+    settingsMenuRef.current &&
+    !settingsMenuRef.current.contains(e.target)
+  ) {
+    console.log("Closing settings");
+    setShowSettings(false);
+  }
+
+  if (
+    fileMenuRef.current &&
+    !fileMenuRef.current.contains(e.target)
+  ) {
+    setShowFileMenu(false);
+  }
+}
+
+  document.addEventListener("mousedown", handleClickOutside);
+
+  return () => {
+    document.removeEventListener("mousedown", handleClickOutside);
+  };
+}, []);
   return (
    <div className="flex items-center gap-3">
         <div className="flex items-center gap-3">
@@ -68,10 +86,21 @@ const EditorToolbar = ({ onRun,  onNewFile, onOpenFile,  }) => {
           <span className="text-white">Save</span>
         </button>
 
-        <button className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-700 transition">
-          <Settings size={18} className="text-gray-300" />
-          <span className="text-white">Settings</span>
-        </button>
+        <div className="relative" ref={settingsMenuRef}>
+          <button
+           onClick={() => setShowSettings((prev) => !prev)}
+            className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-700 transition"
+          >
+            <Settings size={18} className="text-gray-300" />
+            <span className="text-white">Settings</span>
+            <ChevronDown size={16} className="text-gray-300" />
+          </button>
+
+          <EditorSettings
+            open={showSettings}
+            onClose={() => setShowSettings(false)}
+          />
+        </div>
       </div>
 
       <button 
