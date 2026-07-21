@@ -47,7 +47,13 @@ function rejectUpgrade(socket, statusCode, message) {
 server.on('upgrade', async (request, socket, head) => {
   try {
     const url = new URL(request.url, `http://${request.headers.host}`)
-    const docName = url.pathname.slice(1) || 'default-room'
+    // IMPORTANT: url.pathname does NOT automatically decode percent-
+    // encoding (e.g. "%20" stays as literal text, not a space). Room
+    // names with spaces or other special characters would silently
+    // fail to match what's stored in MongoDB without this decode —
+    // this was a real bug, caught by testing a room name with a space
+    // in it ("Our first room").
+    const docName = decodeURIComponent(url.pathname.slice(1)) || 'default-room'
     const token = url.searchParams.get('token')
     const pin = url.searchParams.get('pin')
 
