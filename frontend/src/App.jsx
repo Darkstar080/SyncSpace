@@ -1,18 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
+import AuthScreen from './components/AuthScreen'
 import JoinScreen from './components/JoinScreen'
 import Whiteboard from './components/Whiteboard'
-import CodeEditor from "./components/CodeEditor";
+import CodeEditor from './components/CodeEditor'
 import { createRoomConnection, destroyRoomConnection, randomColor } from './lib/yjs'
+import { getToken, getUsername } from './lib/api'
 
 export default function App() {
+  const [username, setUsername] = useState(getUsername())
   const [connection, setConnection] = useState(null)
   const [status, setStatus] = useState('disconnected')
   const [users, setUsers] = useState([])
   const connectionRef = useRef(null)
 
-  function handleJoin({ name, room }) {
-    const user = { name, color: randomColor() }
-    const conn = createRoomConnection(room, user)
+  function handleJoin({ room, pin }) {
+    const user = { name: username, color: randomColor() }
+    const token = getToken()
+    const conn = createRoomConnection(room, user, { token, pin })
     conn.roomName = room
     connectionRef.current = conn
     setConnection(conn)
@@ -27,12 +31,31 @@ export default function App() {
     updateUsers()
   }
 
+  function handleLeaveRoom() {
+    destroyRoomConnection(connectionRef.current)
+    connectionRef.current = null
+    setConnection(null)
+    setUsers([])
+    setStatus('disconnected')
+  }
+
   useEffect(() => {
     return () => destroyRoomConnection(connectionRef.current)
   }, [])
 
+  if (!username) {
+    return <AuthScreen onAuthenticated={(name) => setUsername(name)} />
+  }
+
   if (!connection) {
-    return <JoinScreen onJoin={handleJoin} />
+    return (
+      <JoinScreen
+        onJoin={handleJoin}
+        onLogout={() => {
+          setUsername(null)
+        }}
+      />
+    )
   }
 
   return (
@@ -43,6 +66,12 @@ export default function App() {
           <span className="text-xs text-text-dim bg-bg-deep px-2.5 py-1 rounded-full border border-border">
             Room: {connection.roomName}
           </span>
+          <button
+            onClick={handleLeaveRoom}
+            className="text-xs text-text-dim underline cursor-pointer bg-transparent border-none"
+          >
+            Leave room
+          </button>
         </div>
         <div className="flex items-center gap-2.5">
           <span
