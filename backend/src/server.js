@@ -4,11 +4,19 @@ import http from 'http'
 import { WebSocketServer } from 'ws'
 import { setupWSConnection, getRoomStats } from './rooms.js'
 import { initPersistence, isAvailable, closePersistence } from './persistence.js'
+import { connectDB, getDB, closeDB } from './db.js'
+import { verifyToken } from './auth.js'
+import authRoutes from './authRoutes.js'
+import roomsApiRoutes from './roomsApi.js'
 
 const PORT = process.env.PORT || 4000
 
 const app = express()
 app.use(cors())
+app.use(express.json())
+
+app.use('/auth', authRoutes)
+app.use('/rooms', roomsApiRoutes)
 
 app.get('/health', (req, res) => {
   res.json({
@@ -26,23 +34,71 @@ app.get('/debug/rooms', (req, res) => {
 const server = http.createServer(app)
 const wss = new WebSocketServer({ noServer: true })
 
-server.on('upgrade', (request, socket, head) => {
-  wss.handleUpgrade(request, socket, head, (ws) => {
-    // Room name = the URL path, e.g. ws://localhost:4000/interview-42
-    // matches how the frontend's y-websocket WebsocketProvider is
-    // configured (see frontend/src/lib/yjs.js).
+/**
+ * Reject a WebSocket upgrade at the HTTP level, before the WS handshake
+ * completes. This is the standard way to say "no" to a connection
+ * attempt that never should have become a WebSocket in the first place.
+ */
+function rejectUpgrade(socket, statusCode, message) {
+  socket.write(`HTTP/1.1 ${statusCode} ${message}\r\n\r\n`)
+  socket.destroy()
+}
+
+server.on('upgrade', async (request, socket, head) => {
+  try {
     const url = new URL(request.url, `http://${request.headers.host}`)
-    const docName = url.pathname.slice(1) || 'default-room'
-    setupWSConnection(ws, docName).catch((err) => {
-      console.error(`[server] error setting up connection for "${docName}":`, err)
+    // IMPORTANT: url.pathname does NOT automatically decode percent-
+    // encoding (e.g. "%20" stays as literal text, not a space). Room
+    // names with spaces or other special characters would silently
+    // fail to match what's stored in MongoDB without this decode —
+    // this was a real bug, caught by testing a room name with a space
+    // in it ("Our first room").
+    const docName = decodeURIComponent(url.pathname.slice(1)) || 'default-room'
+    const token = url.searchParams.get('token')
+    const pin = url.searchParams.get('pin')
+
+    if (!token) {
+      return rejectUpgrade(socket, 401, 'Unauthorized - missing token')
+    }
+
+    let user
+    try {
+      user = verifyToken(token)
+    } catch (err) {
+      return rejectUpgrade(socket, 401, 'Unauthorized - invalid or expired token')
+    }
+
+    const db = getDB()
+    const room = await db.collection('rooms').findOne({ _id: docName })
+    if (!room) {
+      return rejectUpgrade(socket, 404, 'Room not found')
+    }
+    if (room.pin !== pin) {
+      return rejectUpgrade(socket, 403, 'Forbidden - incorrect PIN')
+    }
+
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      ws.userId = user.userId
+      ws.username = user.username
+      setupWSConnection(ws, docName).catch((err) => {
+        console.error(`[server] error setting up connection for "${docName}":`, err)
+      })
     })
-  })
+  } catch (err) {
+    console.error('[server] error during upgrade:', err)
+    rejectUpgrade(socket, 500, 'Internal Server Error')
+  }
 })
 
 async function start() {
+  // Auth/room data is a HARD dependency — if this fails, let it throw
+  // and crash startup rather than run in a broken state where login is
+  // silently impossible. (Contrast with initPersistence() below, which
+  // is designed to fail gracefully — see persistence.js for why.)
+  await connectDB()
+
   // Checked once, up front, so persistence availability is known and
-  // logged before any real traffic arrives — see persistence.js for why
-  // this matters (y-mongodb-provider itself connects lazily).
+  // logged before any real traffic arrives.
   await initPersistence()
 
   server.listen(PORT, () => {
@@ -54,6 +110,7 @@ async function start() {
 async function shutdown() {
   console.log('\n[server] shutting down...')
   await closePersistence()
+  await closeDB()
   server.close(() => process.exit(0))
   // Force-exit if close() hangs (e.g. a socket won't close cleanly).
   setTimeout(() => process.exit(1), 3000).unref()
@@ -62,4 +119,7 @@ async function shutdown() {
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
 
-start()
+start().catch((err) => {
+  console.error('[server] fatal startup error:', err)
+  process.exit(1)
+})

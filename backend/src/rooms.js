@@ -45,6 +45,23 @@ class WSSharedDoc extends Y.Doc {
     this.awareness = new awarenessProtocol.Awareness(this)
     this.awareness.setLocalState(null)
 
+    // Maps each raw WebSocket connection -> the set of real awareness
+    // client IDs it has ever announced (cursor/name/color). This is what
+    // lets us correctly remove ONLY that connection's presence data the
+    // instant it disconnects — see closeConnection below.
+    /** @type {Map<import('ws').WebSocket, Set<number>>} */
+    this._connControlledIds = new Map()
+
+    // Tracks the chain of in-progress saves for this room. Chained (not
+    // just "the latest save") so saves complete in order, and so we have
+    // one promise that means "everything saved so far has truly landed."
+    // closeConnection awaits this before freeing the room from memory —
+    // without that wait, a fast refresh could close the room and trigger
+    // a fresh reload from MongoDB BEFORE the most recent edit's save had
+    // actually finished writing, silently losing that edit. (This is a
+    // real bug that was caught by testing rapid refresh-after-draw.)
+    this._pendingSave = Promise.resolve()
+
     this.awareness.on('update', ({ added, updated, removed }, origin) => {
       const changedClients = added.concat(updated, removed)
       const encoder = encoding.createEncoder()
@@ -55,6 +72,19 @@ class WSSharedDoc extends Y.Doc {
       )
       const message = encoding.toUint8Array(encoder)
       this.conns.forEach((conn) => send(conn, message))
+
+      // `origin` is the connection that sent this awareness update (see
+      // the MESSAGE_AWARENESS case in setupWSConnection, which passes
+      // `conn` as the origin). Record which real client IDs belong to it.
+      if (origin && this.conns.has(origin)) {
+        let ids = this._connControlledIds.get(origin)
+        if (!ids) {
+          ids = new Set()
+          this._connControlledIds.set(origin, ids)
+        }
+        added.concat(updated).forEach((id) => ids.add(id))
+        removed.forEach((id) => ids.delete(id))
+      }
     })
 
     this.on('update', (update, origin) => {
@@ -64,15 +94,14 @@ class WSSharedDoc extends Y.Doc {
       const message = encoding.toUint8Array(encoder)
       this.conns.forEach((conn) => send(conn, message))
 
-      // Persist every change as it happens. This is what closes the gap
-      // where data used to be lost the moment the last person left a
-      // room (see getRoom below for the removal logic) — since every
-      // edit is saved the instant it happens, there's no "unsaved" state
-      // left by the time anyone disconnects. Skip re-saving the update
-      // we just loaded FROM persistence (see getRoom) — saving it back
+      // Persist every change as it happens, chained onto any save
+      // already in progress so writes land in order. Skip re-saving the
+      // update we just loaded FROM persistence — saving it back
       // immediately would be a pointless round trip.
       if (origin !== 'persistence-load') {
-        saveRoomUpdate(this.name, update)
+        this._pendingSave = this._pendingSave
+          .then(() => saveRoomUpdate(this.name, update))
+          .catch(() => {}) // saveRoomUpdate already logs its own errors
       }
     })
   }
@@ -113,25 +142,40 @@ function getRoom(docName) {
   return doc
 }
 
-function closeConnection(conn) {
+async function closeConnection(conn) {
   const doc = conn.doc
   if (doc) {
     doc.conns.delete(conn)
-    awarenessProtocol.removeAwarenessStates(
-      doc.awareness,
-      [conn.clientId],
-      null
-    )
-    // Free the room from memory once everyone leaves. Note: every edit
-    // was already saved live (see the 'update' handler above), so — unlike
-    // before persistence existed — nothing is lost here. This cleanup is
-    // purely about not holding empty rooms in RAM forever.
+
+    // Remove exactly the presence entries THIS connection actually
+    // announced — not a made-up ID. This is what makes a disconnected
+    // user's cursor and name disappear immediately, instead of only
+    // after Yjs's own ~30s stale-state fallback eventually clears it.
+    const controlledIds = doc._connControlledIds.get(conn)
+    if (controlledIds && controlledIds.size > 0) {
+      awarenessProtocol.removeAwarenessStates(
+        doc.awareness,
+        Array.from(controlledIds),
+        null
+      )
+    }
+    doc._connControlledIds.delete(conn)
     if (doc.conns.size === 0) {
-      rooms.delete(doc.name)
-      console.log(`[rooms] room "${doc.name}" emptied, removed from memory`)
-      // Best-effort compaction of this room's stored updates. Not
-      // required for correctness — fire and forget.
-      flushRoom(doc.name)
+      // Wait for every save triggered during this room's lifetime to
+      // actually finish before freeing it from memory. This is the fix
+      // for the race where a fast refresh could empty + reload a room
+      // before its most recent edit had actually finished saving.
+      await doc._pendingSave
+
+      // Someone may have reconnected while we were waiting — only
+      // delete if the room is still actually empty.
+      if (doc.conns.size === 0) {
+        rooms.delete(doc.name)
+        console.log(`[rooms] room "${doc.name}" emptied, removed from memory`)
+        // Best-effort compaction of this room's stored updates. Not
+        // required for correctness — fire and forget.
+        flushRoom(doc.name)
+      }
     }
   }
   try {
@@ -152,7 +196,6 @@ export async function setupWSConnection(conn, docName) {
   conn.binaryType = 'arraybuffer'
   const doc = getRoom(docName)
   conn.doc = doc
-  conn.clientId = doc.awareness.clientID + Math.random() // uniqueness per socket, refined below
   doc.conns.add(conn)
 
   conn.on('message', (message) => {
@@ -186,8 +229,16 @@ export async function setupWSConnection(conn, docName) {
     }
   })
 
-  conn.on('close', () => closeConnection(conn))
-  conn.on('error', () => closeConnection(conn))
+  conn.on('close', () => {
+    closeConnection(conn).catch((err) =>
+      console.error(`[rooms] error during cleanup for "${docName}":`, err)
+    )
+  })
+  conn.on('error', () => {
+    closeConnection(conn).catch((err) =>
+      console.error(`[rooms] error during cleanup for "${docName}":`, err)
+    )
+  })
   // Wait for any persisted state to finish loading before starting the
   // sync handshake — otherwise a client connecting at the exact moment
   // the room is first created could sync against a doc that hasn't
