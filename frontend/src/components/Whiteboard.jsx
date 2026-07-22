@@ -36,6 +36,7 @@ export default function Whiteboard({ shapes, awareness }) {
   const [, forceRender] = useReducer((x) => x + 1, 0)
   const [tool, setTool] = useState('select')
   const [selectedId, setSelectedId] = useState(null)
+  const [background, setBackground] = useState("#ffffff")
   const drawingShapeId = useRef(null)
   const startPoint = useRef(null)
   const stageRef = useRef(null)
@@ -44,7 +45,11 @@ export default function Whiteboard({ shapes, awareness }) {
   const transformerRef = useRef(null)
   const [stageSize, setStageSize] = useState({ width: 640, height: 520 })
   const [textBox, setTextBox] = useState(null)
+  const [fontSize, setFontSize] = useState(16)
+  const [fontFamily, setFontFamily] =useState("arial") 
+  const [fontColor, setFontColor] = useState("#000000")
   const [showPenPanel, setShowPenPanel] = useState(false)
+  const [showTextPanel, setShowTextPanel] = useState(false)
   const [showMiniPenBar, setShowMiniPenBar] = useState(false)
   const [showShapePanel, setShowShapePanel] = useState(false)
   const [shapePanelPosition, setShapePanelPosition] = useState({
@@ -185,6 +190,17 @@ useEffect(() => {
     setSelectedId(null)
   }
 
+  function updateSelectedText(property, value) {
+    if (!selectedId) return
+
+    const map = getShapeMapById(selectedId)
+    if (!map) return
+
+    if (map.get("type") !== "text") return
+
+    map.set(property, value)
+  }
+
   function pointerPos() {
     const stage = stageRef.current
     return stage.getPointerPosition()
@@ -200,10 +216,14 @@ useEffect(() => {
       setSelectedId(null)
     }
 
-    if (tool === 'select') return // drawing tools only, below
+    if (tool === "select") return; // drawing tools only, below
+
+    if (textBox) return;
 
     const pos = pointerPos()
     if (tool === 'text') {
+      if (textBox) return;
+
   setTextBox({
     x: pos.x,
     y: pos.y,
@@ -387,6 +407,14 @@ useEffect(() => {
 
                   if (t === "pen") {
                     setShowPenPanel(true)
+                    setShowTextPanel(false)
+                  } else if (t === "text") {
+                    setShowPenPanel(false)
+                    setShowTextPanel(true)
+                  } else {
+                    setShowPenPanel(false)
+                    setShowTextPanel(false)
+                  }                  
                     setShowMiniPenBar(false)
                     setShowShapePanel(false)
                   } else {
@@ -416,6 +444,18 @@ useEffect(() => {
               Shapes
             </button>
           </div>
+
+          <select
+  value={background}
+  onChange={(e) => setBackground(e.target.value)}
+  className="px-2 py-1 rounded-md text-xs border border-border bg-white text-black"
+>
+  <option value="#ffffff">White</option>
+  <option value="#000000">Black</option>
+  <option value="#008000">Green</option>
+</select>
+
+
           <div className="w-px h-5 bg-border" />
           <button
             className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
@@ -452,6 +492,7 @@ useEffect(() => {
           onMouseDown={handleStageMouseDown}
           onMouseMove={handleStageMouseMove}
           onMouseUp={handleStageMouseUp}
+          style={{ background}}
           className="bg-white"
           style={{ cursor: tool === 'pen' && penType === 'laser' ? 'pointer' : 'default' }}
         >
@@ -572,6 +613,13 @@ useEffect(() => {
                 return (
                   <Text
                     {...commonProps}
+                    x={map.get("x")}
+                    y={map.get("y")}
+                    text={map.get("text")}
+                    fill={isSelected ? "#89b4fa" : map.get("color")}
+                    fontSize={map.get("fontSize") || 16}
+
+                    fontFamily={map.get("fontFamily") || "Arial"}
                     text={map.get('text')}
                     fill={isSelected ? '#89b4fa' : color}
                     fontSize={16}
@@ -620,6 +668,86 @@ useEffect(() => {
             )}
           </Layer>
         </Stage>
+        {showTextPanel && (
+  <div
+    style={{
+      position: "absolute",
+      left: 20,
+      top: 70,
+      width: 250,
+      background: "#fff",
+      borderRadius: "16px",
+      padding: "18px",
+      boxShadow: "0 4px 15px rgba(0,0,0,0.15)",
+      border: "1px solid #ddd",
+      zIndex: 1000,
+    }}
+  >
+    <h3 style={{ marginBottom: 15 }}>Text Settings</h3>
+
+    <div style={{ marginBottom: 15 }}>
+      <div style={{ marginBottom: 5 }}>Font Family</div>
+
+      <select
+        value={fontFamily}
+        style={{
+          width: "100%",
+          padding: "8px",
+          borderRadius: "8px",
+        }}
+        onChange={(e) => {
+          setFontFamily(e.target.value)
+          updateSelectedText("fontFamily", e.target.value)
+        }}
+      >
+        <option value="Arial">Arial</option>
+        <option value="Verdana">Verdana</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Tahoma">Tahoma</option>
+        <option value="Courier New">Courier New</option>
+        <option value="Times New Roman">Times New Roman</option>
+      </select>
+    </div>
+
+    <div style={{ marginBottom: 15 }}>
+      <div style={{ marginBottom: 5 }}>Font Size</div>
+
+      <input
+        type="range"
+        min="8"
+        max="72"
+        value={fontSize}
+        style={{ width: "100%" }}
+        onChange={(e) => {
+          const value = Number(e.target.value)
+          setFontSize(value)
+          updateSelectedText("fontSize", value)
+        }}
+      />
+
+      <div>{fontSize}px</div>
+    </div>
+
+    <div>
+      <div style={{ marginBottom: 5 }}>Font Color</div>
+
+      <input
+        type="color"
+        value={fontColor}
+        style={{
+          width: "100%",
+          height: "40px",
+          border: "none",
+        }}
+        onChange={(e) => {
+          setFontColor(e.target.value)
+          updateSelectedText("color", e.target.value)
+        }}
+      />
+    </div>
+  </div>
+)}
+
           {showPenPanel && (
             <div ref={penPanelRef}>
               <PenPanel
@@ -679,6 +807,17 @@ useEffect(() => {
                         return
                       }
 
+                      const map = new Y.Map()
+                      map.set("id", `${awareness.clientID}-${Date.now()}`)
+                      map.set("type", "text")
+                      map.set("x", textBox.x)
+                      map.set("y", textBox.y)
+                      map.set("text", textBox.text)
+                      map.set("fontSize", fontSize)
+                      map.set("fontFamily", fontFamily)
+                      map.set("color", fontColor)
+
+                      shapes.push([map])
                       if (textBox.id) {
                         const map = getShapeMapById(textBox.id)
                         if (map) {
@@ -701,7 +840,9 @@ useEffect(() => {
                         shapes.push([map])
                       }
 
-                      setTextBox(null)
+                      requestAnimationFrame(() => {
+                        setTextBox(null)
+                      })
                     }}
                 style={{
                   position: "absolute",
