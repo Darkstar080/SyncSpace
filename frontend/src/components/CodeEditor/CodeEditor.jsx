@@ -4,7 +4,7 @@ import { MonacoBinding } from 'y-monaco'
 import EditorToolbar from "./EditorToolbar";
 import OutputPanel from "./OutputPanel";
 import NewFileModal from "./NewFileModal";
-
+import { saveFile } from "./saveFile";
 
 
 export default function CodeEditor({ codeText, awareness }) {
@@ -173,7 +173,14 @@ useEffect(() => {
         event.target.value = "";
       }
 
-     
+           function handleSave() {
+              if (!currentFile) {
+                alert("Please create or open a file first.");
+                return;
+              }
+
+              saveFile(currentFile.name, codeText.toString());
+            }
      // This function handles the "Run" button click event. It retrieves the current code from the editor, logs the selected language and code to the console, and opens the output panel. 
       async function handleRun() {
          if (!currentFile) {
@@ -181,6 +188,7 @@ useEffect(() => {
         setOutput("Please create a new file or open an existing file first.");
         return;
       }
+
         const code = codeText.toString().trim();
         if (!code) {
           setIsOutputOpen(true);
@@ -232,13 +240,14 @@ useEffect(() => {
             </span>
           )}
         </div>
-          <EditorToolbar
-            onRun={handleRun}
-            onNewFile={() => setShowNewFileModal(true)}
-            onOpenFile={handleOpenFileClick}
-            editorSettings={editorSettings}
-            setEditorSettings={setEditorSettings}
-          />
+        <EditorToolbar
+          onRun={handleRun}
+          onSave={handleSave}
+          onNewFile={() => setShowNewFileModal(true)}
+          onOpenFile={handleOpenFileClick}
+          editorSettings={editorSettings}
+          setEditorSettings={setEditorSettings}
+        />
         </div>
         <div className="flex-1 min-h-0">
             <Editor

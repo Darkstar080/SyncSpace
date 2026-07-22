@@ -4,7 +4,13 @@ import EditorSettings from "./EditorSettings";
 
 
 
-const EditorToolbar = ({ onRun,  onNewFile, onOpenFile, onOpenSettings, editorSettings,setEditorSettings,  }) => {
+const EditorToolbar = ({ onRun,
+  onSave,
+  onNewFile,
+  onOpenFile,
+  onOpenSettings,
+  editorSettings,
+  setEditorSettings, }) => {
   const [showFileMenu, setShowFileMenu] = useState(false);
   const fileMenuRef = useRef(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -78,10 +84,14 @@ const EditorToolbar = ({ onRun,  onNewFile, onOpenFile, onOpenSettings, editorSe
                     <span>Open Folder</span>
                   </button>
                 </div>
+                
               )}
             </div>
 
-        <button className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-700 transition">
+        <button
+          onClick={onSave}
+          className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-700 transition"
+        >
           <Save size={18} className="text-blue-400" />
           <span className="text-white">Save</span>
         </button>
