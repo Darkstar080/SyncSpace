@@ -18,12 +18,42 @@ export default function AuthScreen({ onAuthenticated }) {
   const [mode, setMode] = useState('login') // 'login' | 'register'
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [loading, setLoading] = useState(false)
+
+  // Mirrors the backend's actual rules (see authRoutes.js) so obvious
+  // mistakes are caught instantly, without a round trip to the server.
+  // The backend still re-validates everything itself — this is purely
+  // for faster feedback, not a replacement for server-side checks.
+  function validate() {
+    const errors = {}
+
+    if (!username.trim()) {
+      errors.username = 'Username is required'
+    } else if (username.trim().length < 3) {
+      errors.username = 'Must be at least 3 characters'
+    }
+
+    if (!password) {
+      errors.password = 'Password is required'
+    } else if (password.length < 6) {
+      errors.password = 'Must be at least 6 characters'
+    }
+
+    if (mode === 'register' && password !== confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match'
+    }
+
+    setFieldErrors(errors)
+    return Object.keys(errors).length === 0
+  }
 
   async function submit(e) {
     e.preventDefault()
     setError('')
+    if (!validate()) return
     setLoading(true)
     try {
       const action = mode === 'login' ? login : register
@@ -214,6 +244,8 @@ export default function AuthScreen({ onAuthenticated }) {
                 onClick={() => {
                   setMode(m)
                   setError('')
+                  setFieldErrors({})
+                  setConfirmPassword('')
                 }}
                 className="flex-1 py-2 rounded-md text-sm font-medium auth-mono cursor-pointer transition-colors"
                 style={
@@ -233,17 +265,24 @@ export default function AuthScreen({ onAuthenticated }) {
             </span>
             <input
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="priya"
+              onChange={(e) => {
+                setUsername(e.target.value)
+                if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: '' }))
+              }}
+              placeholder="Enter Your Username..."
               autoFocus
-              className="auth-mono rounded-md px-3 py-2.5 text-sm border focus:outline-2 focus:outline-offset-1"
               className="auth-mono auth-input rounded-md px-3 py-2.5 text-sm border outline-none"
               style={{
                 background: 'var(--auth-panel)',
-                borderColor: 'var(--auth-border)',
+                borderColor: fieldErrors.username ? 'var(--auth-coral)' : 'var(--auth-border)',
                 color: 'var(--auth-text)',
               }}
             />
+            {fieldErrors.username && (
+              <span className="auth-mono text-xs" style={{ color: 'var(--auth-coral)' }}>
+                {fieldErrors.username}
+              </span>
+            )}
           </label>
 
           <label className="flex flex-col gap-1.5">
@@ -253,16 +292,53 @@ export default function AuthScreen({ onAuthenticated }) {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }))
+                if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }))
+              }}
               placeholder="At least 6 characters"
               className="auth-mono auth-input rounded-md px-3 py-2.5 text-sm border outline-none"
               style={{
                 background: 'var(--auth-panel)',
-                borderColor: 'var(--auth-border)',
+                borderColor: fieldErrors.password ? 'var(--auth-coral)' : 'var(--auth-border)',
                 color: 'var(--auth-text)',
               }}
             />
+            {fieldErrors.password && (
+              <span className="auth-mono text-xs" style={{ color: 'var(--auth-coral)' }}>
+                {fieldErrors.password}
+              </span>
+            )}
           </label>
+
+          {mode === 'register' && (
+            <label className="flex flex-col gap-1.5">
+              <span className="auth-mono text-xs" style={{ color: 'var(--auth-text-dim)' }}>
+                // confirm password
+              </span>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value)
+                  if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }))
+                }}
+                placeholder="Type your password again"
+                className="auth-mono auth-input rounded-md px-3 py-2.5 text-sm border outline-none"
+                style={{
+                  background: 'var(--auth-panel)',
+                  borderColor: fieldErrors.confirmPassword ? 'var(--auth-coral)' : 'var(--auth-border)',
+                  color: 'var(--auth-text)',
+                }}
+              />
+              {fieldErrors.confirmPassword && (
+                <span className="auth-mono text-xs" style={{ color: 'var(--auth-coral)' }}>
+                  {fieldErrors.confirmPassword}
+                </span>
+              )}
+            </label>
+          )}
 
           {error && (
             <p className="auth-mono text-xs" style={{ color: 'var(--auth-coral)' }}>
