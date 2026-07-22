@@ -1,10 +1,9 @@
-import { useRef,useState } from 'react'
+import { useRef,useState,useEffect  } from 'react'
 import Editor from '@monaco-editor/react'
 import { MonacoBinding } from 'y-monaco'
 import EditorToolbar from "./EditorToolbar";
 import OutputPanel from "./OutputPanel";
 import NewFileModal from "./NewFileModal";
-
 
 
 
@@ -16,10 +15,32 @@ export default function CodeEditor({ codeText, awareness }) {
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [currentFile, setCurrentFile] = useState(null);
   const [output, setOutput] = useState("");
+ const [editorSettings, setEditorSettings] = useState(() => {
+  const saved = localStorage.getItem("editorSettings");
+  return saved
+    ? JSON.parse(saved)
+    : {
+        theme: "vs-dark",
+        fontSize: 14,
+        wordWrap: "off",
+        minimap: false,
+        lineNumbers: "on",
+      };
+});
+
+// This useEffect hook saves the editor settings to localStorage whenever they change, ensuring that user preferences persist across sessions.
+useEffect(() => {
+  localStorage.setItem(
+    "editorSettings",
+    JSON.stringify(editorSettings)
+  );
+}, [editorSettings]);
 
 
-  function handleMount(editor) {
+
+  function handleMount(editor, monaco) {
     const model = editor.getModel()
+    
    
 
     // This one line is what makes typing collaborative: it keeps the
@@ -211,21 +232,28 @@ export default function CodeEditor({ codeText, awareness }) {
             </span>
           )}
         </div>
-        <EditorToolbar
-          onRun={handleRun}
-          onNewFile={() => setShowNewFileModal(true)}
-          onOpenFile={handleOpenFileClick}
-        />
+          <EditorToolbar
+            onRun={handleRun}
+            onNewFile={() => setShowNewFileModal(true)}
+            onOpenFile={handleOpenFileClick}
+            editorSettings={editorSettings}
+            setEditorSettings={setEditorSettings}
+          />
         </div>
         <div className="flex-1 min-h-0">
             <Editor
               height="100%"
               language={language}
-              theme="vs-dark"
+              theme={editorSettings.theme}
+             
               onMount={handleMount}
               options={{
-                minimap: { enabled: false },
-                fontSize: 14,
+                fontSize: editorSettings.fontSize,
+                wordWrap: editorSettings.wordWrap,
+                minimap: {
+                  enabled: editorSettings.minimap,
+                },
+                lineNumbers: editorSettings.lineNumbers,
               }}
             />
         </div>

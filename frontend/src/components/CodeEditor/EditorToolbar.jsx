@@ -4,7 +4,7 @@ import EditorSettings from "./EditorSettings";
 
 
 
-const EditorToolbar = ({ onRun,  onNewFile, onOpenFile, onOpenSettings  }) => {
+const EditorToolbar = ({ onRun,  onNewFile, onOpenFile, onOpenSettings, editorSettings,setEditorSettings,  }) => {
   const [showFileMenu, setShowFileMenu] = useState(false);
   const fileMenuRef = useRef(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -98,7 +98,8 @@ const EditorToolbar = ({ onRun,  onNewFile, onOpenFile, onOpenSettings  }) => {
 
           <EditorSettings
             open={showSettings}
-            onClose={() => setShowSettings(false)}
+            editorSettings={editorSettings}
+            setEditorSettings={setEditorSettings}
           />
         </div>
       </div>
