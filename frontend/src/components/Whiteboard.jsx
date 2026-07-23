@@ -46,28 +46,26 @@ export default function Whiteboard({ shapes, awareness }) {
   const [stageSize, setStageSize] = useState({ width: 640, height: 520 })
   const [textBox, setTextBox] = useState(null)
   const [fontSize, setFontSize] = useState(16)
-  const [fontFamily, setFontFamily] =useState("arial") 
+  const [fontFamily, setFontFamily] = useState("Arial")
   const [fontColor, setFontColor] = useState("#000000")
   const [showPenPanel, setShowPenPanel] = useState(false)
   const [showTextPanel, setShowTextPanel] = useState(false)
   const [showMiniPenBar, setShowMiniPenBar] = useState(false)
   const [showShapePanel, setShowShapePanel] = useState(false)
   const [shapePanelPosition, setShapePanelPosition] = useState({
-      x: 350,
-      y: 70,
+    x: 350,
+    y: 70,
   })
-   const [minimized, setMinimized] = useState(false)
+  const [minimized, setMinimized] = useState(false)
   const [penColor, setPenColor] = useState("#1e1e1e")
   const [strokeWidth, setStrokeWidth] = useState(2)
   const [opacity, setOpacity] = useState(100)
   const [penType, setPenType] = useState("normal")
   const penPanelRef = useRef(null)
   const [penPanelPosition, setPenPanelPosition] = useState({
-      x: 20,
-      y: 70,
-    })
-  
- 
+    x: 20,
+    y: 70,
+  })
 
   // Fill the whole panel instead of a fixed 640x520 box. Without this,
   // the canvas leaves dead space below/beside it whenever the window is
@@ -99,43 +97,42 @@ export default function Whiteboard({ shapes, awareness }) {
   }, [shapes])
 
   // Re-render on awareness changes (other users' cursors moving).
-
- // Close the Pen Panel when clicking outside of it
   useEffect(() => {
     const rerender = () => forceRender()
     awareness.on('change', rerender)
     return () => awareness.off('change', rerender)
   }, [awareness])
 
-
   // Close Pen Panel when clicking outside of it
-useEffect(() => {
-  function handleMouseDown(e) {
-    if (
-      showPenPanel &&
-      penPanelRef.current &&
-      !penPanelRef.current.contains(e.target)
-    ) {
-      setShowPenPanel(false)
+  useEffect(() => {
+    function handleMouseDown(e) {
+      if (
+        showPenPanel &&
+        penPanelRef.current &&
+        !penPanelRef.current.contains(e.target)
+      ) {
+        setShowPenPanel(false)
+      }
     }
-  }
 
-  document.addEventListener("mousedown", handleMouseDown)
+    document.addEventListener("mousedown", handleMouseDown)
 
-  return () => {
-    document.removeEventListener("mousedown", handleMouseDown)
-  }
-}, [showPenPanel])
-  // Keep the Transformer attached to the selected shape — but ONLY if it's
-  // a rect. Lines and text can be selected and moved, but have no
-  // onTransformEnd handler to persist a resize, so attaching the
-  // Transformer to them would let the user drag a resize handle that
-  // silently does nothing useful (and can leave a stale visual scale on
-  // the node until the next re-render). Restricting to 'rect' here keeps
-  // the code honest about what it actually supports.
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown)
+    }
+  }, [showPenPanel])
+
+  // Keep the Transformer attached to the selected shape — but ONLY for
+  // types that actually have a transform-end handler wired up below.
+  // Attaching to a type with no handler would let someone drag a resize
+  // handle that silently does nothing useful.
   useEffect(() => {
     const map = selectedId ? getShapeMapById(selectedId) : null
-    const node = selectedId && ['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'straight_line', 'arrow', 'text'].includes(map?.get('type'))
+    const resizableTypes = [
+      'rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star',
+      'line', 'straight_line', 'arrow', 'text',
+    ]
+    const node = selectedId && resizableTypes.includes(map?.get('type'))
       ? shapeNodeRefs.current[selectedId]
       : null
     if (transformerRef.current) {
@@ -192,12 +189,9 @@ useEffect(() => {
 
   function updateSelectedText(property, value) {
     if (!selectedId) return
-
     const map = getShapeMapById(selectedId)
     if (!map) return
-
     if (map.get("type") !== "text") return
-
     map.set(property, value)
   }
 
@@ -216,36 +210,30 @@ useEffect(() => {
       setSelectedId(null)
     }
 
-    if (tool === "select") return; // drawing tools only, below
-
-    if (textBox) return;
+    if (tool === "select") return // drawing tools only, below
+    if (textBox) return
 
     const pos = pointerPos()
     if (tool === 'text') {
-      if (textBox) return;
-
-  setTextBox({
-    x: pos.x,
-    y: pos.y,
-    width: 200,
-    height: 80,
-    text: "",
-  })
-  return
-}
+      setTextBox({
+        x: pos.x,
+        y: pos.y,
+        width: 200,
+        height: 80,
+        text: "",
+      })
+      return
+    }
 
     const id = `${awareness.clientID}-${Date.now()}`
     const map = new Y.Map()
     map.set('id', id)
     const isLaser = tool === 'pen' && penType === 'laser'
-    map.set(
-      "color",
-      isLaser ? "#ff2d2d" : penColor
-    )
+    map.set('color', isLaser ? '#ff2d2d' : penColor)
     map.set('strokeWidth', strokeWidth)
-    map.set("opacity", opacity)
-    map.set("penType", isLaser ? "laser" : "normal")
-    map.set("createdAt", Date.now())
+    map.set('opacity', opacity)
+    map.set('penType', isLaser ? 'laser' : 'normal')
+    map.set('createdAt', Date.now())
 
     if (tool === 'pen') {
       map.set('type', 'line')
@@ -289,28 +277,29 @@ useEffect(() => {
       map.set('points', [start.x, start.y, pos.x, pos.y])
     }
   }
-  // When the user releases the mouse button, if they were drawing a "laser" line, remove it after a short delay. This creates a temporary
-  // highlight effect that disappears automatically.
-    function handleStageMouseUp() {
-      const id = drawingShapeId.current
 
-      if (id) {
-        const shape = getShapeMapById(id)
+  // When the user releases the mouse button, if they were drawing a
+  // "laser" line, remove it after a short delay — a temporary highlight
+  // effect that disappears automatically.
+  function handleStageMouseUp() {
+    const id = drawingShapeId.current
 
-        if (shape && shape.get("penType") === "laser") {
-          setTimeout(() => {
-            const index = getShapeIndexById(id)
-
-            if (index !== -1) {
-              shapes.delete(index, 1)
-            }
-          }, 1000) // Change to 2000 for 2 seconds
-        }
+    if (id) {
+      const shape = getShapeMapById(id)
+      if (shape && shape.get("penType") === "laser") {
+        setTimeout(() => {
+          const index = getShapeIndexById(id)
+          if (index !== -1) {
+            shapes.delete(index, 1)
+          }
+        }, 1000)
       }
-
-      drawingShapeId.current = null
-      startPoint.current = null
     }
+
+    drawingShapeId.current = null
+    startPoint.current = null
+  }
+
   // --- Move (drag) a shape: write the new position back into its Y.Map ---
   function handleShapeDragEnd(id, e) {
     const map = getShapeMapById(id)
@@ -342,7 +331,7 @@ useEffect(() => {
     }
   }
 
-  // --- Resize a line via the Transformer handles ---
+  // --- Resize a line/arrow via the Transformer handles ---
   function handleLineTransformEnd(id, e) {
     const map = getShapeMapById(id)
     if (!map) return
@@ -355,12 +344,12 @@ useEffect(() => {
     map.set('rotation', node.rotation())
     map.set('scaleX', (map.get('scaleX') || 1) * scaleX)
     map.set('scaleY', (map.get('scaleY') || 1) * scaleY)
-    
+
     node.scaleX(1)
     node.scaleY(1)
   }
 
-  // --- Resize a rectangle via the Transformer handles ---
+  // --- Resize a rect-family shape (or standalone text) via the Transformer ---
   function handleRectTransformEnd(id, e) {
     const map = getShapeMapById(id)
     if (!map) return
@@ -387,6 +376,7 @@ useEffect(() => {
   )
 
   const selectable = tool === 'select'
+  const shapeTools = ['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'arrow']
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0 border-r border-border">
@@ -405,22 +395,18 @@ useEffect(() => {
                 onClick={() => {
                   setTool(t)
 
-                  if (t === "pen") {
+                  if (t === 'pen') {
                     setShowPenPanel(true)
                     setShowTextPanel(false)
-                  } else if (t === "text") {
+                  } else if (t === 'text') {
                     setShowPenPanel(false)
                     setShowTextPanel(true)
                   } else {
                     setShowPenPanel(false)
                     setShowTextPanel(false)
-                  }                  
-                    setShowMiniPenBar(false)
-                    setShowShapePanel(false)
-                  } else {
-                    setShowPenPanel(false)
-                    setShowMiniPenBar(false)
                   }
+                  setShowMiniPenBar(false)
+                  setShowShapePanel(false)
                 }}
               >
                 {t}
@@ -428,7 +414,7 @@ useEffect(() => {
             ))}
             <button
               className={`px-2.5 py-1 rounded-md text-xs capitalize cursor-pointer transition-colors ${
-                ['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'arrow'].includes(tool)
+                shapeTools.includes(tool)
                   ? 'bg-accent text-bg-deep font-semibold'
                   : 'bg-transparent text-text-dim hover:text-text'
               }`}
@@ -436,7 +422,7 @@ useEffect(() => {
                 setShowShapePanel(!showShapePanel)
                 setShowPenPanel(false)
                 setShowMiniPenBar(false)
-                if (!['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'arrow'].includes(tool)) {
+                if (!shapeTools.includes(tool)) {
                   setTool('rect')
                 }
               }}
@@ -446,15 +432,14 @@ useEffect(() => {
           </div>
 
           <select
-  value={background}
-  onChange={(e) => setBackground(e.target.value)}
-  className="px-2 py-1 rounded-md text-xs border border-border bg-white text-black"
->
-  <option value="#ffffff">White</option>
-  <option value="#000000">Black</option>
-  <option value="#008000">Green</option>
-</select>
-
+            value={background}
+            onChange={(e) => setBackground(e.target.value)}
+            className="px-2 py-1 rounded-md text-xs border border-border bg-white text-black"
+          >
+            <option value="#ffffff">White</option>
+            <option value="#000000">Black</option>
+            <option value="#008000">Green</option>
+          </select>
 
           <div className="w-px h-5 bg-border" />
           <button
@@ -476,15 +461,12 @@ useEffect(() => {
               className="px-2.5 py-1 rounded-md text-xs bg-transparent border border-accent-2 text-accent-2 hover:bg-accent-2 hover:text-bg-deep"
               onClick={() => deleteShape(selectedId)}
             >
-               delete
+              delete
             </button>
           )}
         </div>
       </div>
-      <div
-          ref={canvasWrapRef}
-          className="flex-1 min-h-0 bg-bg-deep relative"
-        >
+      <div ref={canvasWrapRef} className="flex-1 min-h-0 bg-bg-deep relative">
         <Stage
           ref={stageRef}
           width={stageSize.width}
@@ -492,9 +474,11 @@ useEffect(() => {
           onMouseDown={handleStageMouseDown}
           onMouseMove={handleStageMouseMove}
           onMouseUp={handleStageMouseUp}
-          style={{ background}}
           className="bg-white"
-          style={{ cursor: tool === 'pen' && penType === 'laser' ? 'pointer' : 'default' }}
+          style={{
+            background,
+            cursor: tool === 'pen' && penType === 'laser' ? 'pointer' : 'default',
+          }}
         >
           <Layer>
             {Array.from(shapes).map((map) => {
@@ -523,17 +507,20 @@ useEffect(() => {
               }
 
               if (type === 'line' || type === 'straight_line' || type === 'arrow') {
+                const isLaser = map.get('penType') === 'laser'
                 const strokeProps = {
                   stroke: isSelected ? '#89b4fa' : color,
-                  strokeWidth: map.get("penType") === "laser"
-                    ? map.get("strokeWidth") + 1
-                    : (isSelected ? map.get("strokeWidth") + 1 : map.get("strokeWidth")),
-                  opacity: (map.get("opacity") ?? 100) / 100,
-                  shadowColor: map.get("penType") === "laser" ? "#ff0000" : undefined,
-                  shadowBlur: map.get("penType") === "laser" ? 12 : 0,
-                  shadowOpacity: map.get("penType") === "laser" ? 1 : 0,
-                  shadowEnabled: map.get("penType") === "laser"
-                };
+                  strokeWidth: isLaser
+                    ? map.get('strokeWidth') + 1
+                    : isSelected
+                    ? map.get('strokeWidth') + 1
+                    : map.get('strokeWidth'),
+                  opacity: (map.get('opacity') ?? 100) / 100,
+                  shadowColor: isLaser ? '#ff0000' : undefined,
+                  shadowBlur: isLaser ? 12 : 0,
+                  shadowOpacity: isLaser ? 1 : 0,
+                  shadowEnabled: isLaser,
+                }
 
                 if (type === 'arrow') {
                   return (
@@ -560,34 +547,42 @@ useEffect(() => {
                   />
                 )
               }
+
               if (['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star'].includes(type)) {
                 const shapeProps = {
-                  stroke: map.get("penType") === "laser" ? "#ff0000" : (isSelected ? "#89b4fa" : color),
+                  stroke: map.get('penType') === 'laser' ? '#ff0000' : isSelected ? '#89b4fa' : color,
                   strokeWidth: isSelected ? 3 : 2,
-                };
-                
-                const w = map.get('width') || 0;
-                const h = map.get('height') || 0;
-                const sx = map.get('x') || 0;
-                const sy = map.get('y') || 0;
-                const absW = Math.abs(w);
-                const absH = Math.abs(h);
+                }
 
-                let innerNode = null;
+                const w = map.get('width') || 0
+                const h = map.get('height') || 0
+                const absW = Math.abs(w)
+                const absH = Math.abs(h)
+
+                let innerNode = null
                 if (type === 'rect') {
                   innerNode = <Rect {...shapeProps} width={w} height={h} />
                 } else if (type === 'circle') {
-                  innerNode = <Circle {...shapeProps} x={w/2} y={h/2} radius={Math.max(absW, absH) / 2} />
+                  innerNode = <Circle {...shapeProps} x={w / 2} y={h / 2} radius={Math.max(absW, absH) / 2} />
                 } else if (type === 'ellipse') {
-                  innerNode = <Ellipse {...shapeProps} x={w/2} y={h/2} radiusX={absW / 2} radiusY={absH / 2} />
+                  innerNode = <Ellipse {...shapeProps} x={w / 2} y={h / 2} radiusX={absW / 2} radiusY={absH / 2} />
                 } else if (type === 'triangle') {
-                  const pts = [w/2, 0, w, h, 0, h];
+                  const pts = [w / 2, 0, w, h, 0, h]
                   innerNode = <Line {...shapeProps} points={pts} closed={true} />
                 } else if (type === 'diamond') {
-                  const pts = [w/2, 0, w, h/2, w/2, h, 0, h/2];
+                  const pts = [w / 2, 0, w, h / 2, w / 2, h, 0, h / 2]
                   innerNode = <Line {...shapeProps} points={pts} closed={true} />
                 } else if (type === 'star') {
-                  innerNode = <Star {...shapeProps} x={w/2} y={h/2} numPoints={5} innerRadius={Math.max(absW, absH) / 4} outerRadius={Math.max(absW, absH) / 2} />
+                  innerNode = (
+                    <Star
+                      {...shapeProps}
+                      x={w / 2}
+                      y={h / 2}
+                      numPoints={5}
+                      innerRadius={Math.max(absW, absH) / 4}
+                      outerRadius={Math.max(absW, absH) / 2}
+                    />
+                  )
                 }
 
                 return (
@@ -609,20 +604,15 @@ useEffect(() => {
                   </Group>
                 )
               }
+
               if (type === 'text') {
                 return (
                   <Text
                     {...commonProps}
-                    x={map.get("x")}
-                    y={map.get("y")}
-                    text={map.get("text")}
-                    fill={isSelected ? "#89b4fa" : map.get("color")}
-                    fontSize={map.get("fontSize") || 16}
-
-                    fontFamily={map.get("fontFamily") || "Arial"}
                     text={map.get('text')}
-                    fill={isSelected ? '#89b4fa' : color}
-                    fontSize={16}
+                    fill={isSelected ? '#89b4fa' : map.get('color') || color}
+                    fontSize={map.get('fontSize') || 16}
+                    fontFamily={map.get('fontFamily') || 'Arial'}
                     onTransformEnd={(e) => handleRectTransformEnd(id, e)}
                   />
                 )
@@ -630,9 +620,9 @@ useEffect(() => {
               return null
             })}
 
-            {/* Resize handles for the selected rectangle only — lines/text
-                can be moved but not resized in this pass (documented
-                limitation, not an oversight: see README). */}
+            {/* Resize/rotate handles for the selected shape (see the
+                resizableTypes list above for exactly which types support
+                this) */}
             <Transformer
               ref={transformerRef}
               rotateEnabled={true}
@@ -668,198 +658,178 @@ useEffect(() => {
             )}
           </Layer>
         </Stage>
+
         {showTextPanel && (
-  <div
-    style={{
-      position: "absolute",
-      left: 20,
-      top: 70,
-      width: 250,
-      background: "#fff",
-      borderRadius: "16px",
-      padding: "18px",
-      boxShadow: "0 4px 15px rgba(0,0,0,0.15)",
-      border: "1px solid #ddd",
-      zIndex: 1000,
-    }}
-  >
-    <h3 style={{ marginBottom: 15 }}>Text Settings</h3>
+          <div
+            style={{
+              position: 'absolute',
+              left: 20,
+              top: 70,
+              width: 250,
+              background: '#fff',
+              borderRadius: '16px',
+              padding: '18px',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+              border: '1px solid #ddd',
+              zIndex: 1000,
+            }}
+          >
+            <h3 style={{ marginBottom: 15 }}>Text Settings</h3>
 
-    <div style={{ marginBottom: 15 }}>
-      <div style={{ marginBottom: 5 }}>Font Family</div>
+            <div style={{ marginBottom: 15 }}>
+              <div style={{ marginBottom: 5 }}>Font Family</div>
+              <select
+                value={fontFamily}
+                style={{ width: '100%', padding: '8px', borderRadius: '8px' }}
+                onChange={(e) => {
+                  setFontFamily(e.target.value)
+                  updateSelectedText('fontFamily', e.target.value)
+                }}
+              >
+                <option value="Arial">Arial</option>
+                <option value="Verdana">Verdana</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Tahoma">Tahoma</option>
+                <option value="Courier New">Courier New</option>
+                <option value="Times New Roman">Times New Roman</option>
+              </select>
+            </div>
 
-      <select
-        value={fontFamily}
-        style={{
-          width: "100%",
-          padding: "8px",
-          borderRadius: "8px",
-        }}
-        onChange={(e) => {
-          setFontFamily(e.target.value)
-          updateSelectedText("fontFamily", e.target.value)
-        }}
-      >
-        <option value="Arial">Arial</option>
-        <option value="Verdana">Verdana</option>
-        <option value="Georgia">Georgia</option>
-        <option value="Tahoma">Tahoma</option>
-        <option value="Courier New">Courier New</option>
-        <option value="Times New Roman">Times New Roman</option>
-      </select>
-    </div>
+            <div style={{ marginBottom: 15 }}>
+              <div style={{ marginBottom: 5 }}>Font Size</div>
+              <input
+                type="range"
+                min="8"
+                max="72"
+                value={fontSize}
+                style={{ width: '100%' }}
+                onChange={(e) => {
+                  const value = Number(e.target.value)
+                  setFontSize(value)
+                  updateSelectedText('fontSize', value)
+                }}
+              />
+              <div>{fontSize}px</div>
+            </div>
 
-    <div style={{ marginBottom: 15 }}>
-      <div style={{ marginBottom: 5 }}>Font Size</div>
-
-      <input
-        type="range"
-        min="8"
-        max="72"
-        value={fontSize}
-        style={{ width: "100%" }}
-        onChange={(e) => {
-          const value = Number(e.target.value)
-          setFontSize(value)
-          updateSelectedText("fontSize", value)
-        }}
-      />
-
-      <div>{fontSize}px</div>
-    </div>
-
-    <div>
-      <div style={{ marginBottom: 5 }}>Font Color</div>
-
-      <input
-        type="color"
-        value={fontColor}
-        style={{
-          width: "100%",
-          height: "40px",
-          border: "none",
-        }}
-        onChange={(e) => {
-          setFontColor(e.target.value)
-          updateSelectedText("color", e.target.value)
-        }}
-      />
-    </div>
-  </div>
-)}
-
-          {showPenPanel && (
-            <div ref={penPanelRef}>
-              <PenPanel
-                penColor={penColor}
-                setPenColor={setPenColor}
-                strokeWidth={strokeWidth}
-                setStrokeWidth={setStrokeWidth}
-                opacity={opacity}
-                setOpacity={setOpacity}
-                penType={penType}
-                setPenType={setPenType}
-                position={penPanelPosition}
-                setPosition={setPenPanelPosition}
+            <div>
+              <div style={{ marginBottom: 5 }}>Font Color</div>
+              <input
+                type="color"
+                value={fontColor}
+                style={{ width: '100%', height: '40px', border: 'none' }}
+                onChange={(e) => {
+                  setFontColor(e.target.value)
+                  updateSelectedText('color', e.target.value)
+                }}
               />
             </div>
-          )}
-          {showMiniPenBar && (
-            <MiniPenBar
-                onExpand={() => {
-                  setPenPanelPosition({
-                    x: penPanelPosition.x,
-                    y: penPanelPosition.y + 45,
-                  })
+          </div>
+        )}
 
-                  setShowMiniPenBar(false)
-                  setShowPenPanel(true)
-                }}
-              onClose={() => {
-                setShowMiniPenBar(false)
-              }}
+        {showPenPanel && (
+          <div ref={penPanelRef}>
+            <PenPanel
+              penColor={penColor}
+              setPenColor={setPenColor}
+              strokeWidth={strokeWidth}
+              setStrokeWidth={setStrokeWidth}
+              opacity={opacity}
+              setOpacity={setOpacity}
+              penType={penType}
+              setPenType={setPenType}
               position={penPanelPosition}
               setPosition={setPenPanelPosition}
             />
-          )}
-          {showShapePanel && (
-            <ShapePanel
-              tool={tool}
-              setTool={(t) => setTool(t)}
-              position={shapePanelPosition}
-              setPosition={setShapePanelPosition}
-              onClose={() => setShowShapePanel(false)}
-            />
-          )}
+          </div>
+        )}
+
+        {showMiniPenBar && (
+          <MiniPenBar
+            onExpand={() => {
+              setPenPanelPosition({
+                x: penPanelPosition.x,
+                y: penPanelPosition.y + 45,
+              })
+              setShowMiniPenBar(false)
+              setShowPenPanel(true)
+            }}
+            onClose={() => {
+              setShowMiniPenBar(false)
+            }}
+            position={penPanelPosition}
+            setPosition={setPenPanelPosition}
+          />
+        )}
+
+        {showShapePanel && (
+          <ShapePanel
+            tool={tool}
+            setTool={(t) => setTool(t)}
+            position={shapePanelPosition}
+            setPosition={setShapePanelPosition}
+            onClose={() => setShowShapePanel(false)}
+          />
+        )}
+
         {textBox && (
-              <textarea
-             
-                value={textBox.text}
-                onChange={(e) =>
-                  setTextBox({
-                    ...textBox,
-                    text: e.target.value,
-                  })
+          <textarea
+            value={textBox.text}
+            onChange={(e) =>
+              setTextBox({
+                ...textBox,
+                text: e.target.value,
+              })
+            }
+            onBlur={() => {
+              if (!textBox.text.trim() && !textBox.id) {
+                setTextBox(null)
+                return
+              }
+
+              if (textBox.id) {
+                const map = getShapeMapById(textBox.id)
+                if (map) {
+                  if (!textBox.text.trim() && map.get('type') === 'text') {
+                    const index = getShapeIndexById(textBox.id)
+                    if (index !== -1) shapes.delete(index, 1)
+                  } else {
+                    map.set('text', textBox.text)
+                  }
                 }
-                onBlur={() => {
-                      if (!textBox.text.trim() && !textBox.id) {
-                        setTextBox(null)
-                        return
-                      }
+              } else {
+                const map = new Y.Map()
+                map.set('id', `${awareness.clientID}-${Date.now()}`)
+                map.set('type', 'text')
+                map.set('x', textBox.x)
+                map.set('y', textBox.y)
+                map.set('text', textBox.text)
+                map.set('fontSize', fontSize)
+                map.set('fontFamily', fontFamily)
+                map.set('color', fontColor)
+                shapes.push([map])
+              }
 
-                      const map = new Y.Map()
-                      map.set("id", `${awareness.clientID}-${Date.now()}`)
-                      map.set("type", "text")
-                      map.set("x", textBox.x)
-                      map.set("y", textBox.y)
-                      map.set("text", textBox.text)
-                      map.set("fontSize", fontSize)
-                      map.set("fontFamily", fontFamily)
-                      map.set("color", fontColor)
-
-                      shapes.push([map])
-                      if (textBox.id) {
-                        const map = getShapeMapById(textBox.id)
-                        if (map) {
-                          if (!textBox.text.trim() && map.get('type') === 'text') {
-                            const index = getShapeIndexById(textBox.id)
-                            if (index !== -1) shapes.delete(index, 1)
-                          } else {
-                            map.set('text', textBox.text)
-                          }
-                        }
-                      } else {
-                        const map = new Y.Map()
-                        map.set("id", `${awareness.clientID}-${Date.now()}`)
-                        map.set("type", "text")
-                        map.set("x", textBox.x)
-                        map.set("y", textBox.y)
-                        map.set("text", textBox.text)
-                        map.set("color", awareness.getLocalState()?.user?.color || "#000")
-
-                        shapes.push([map])
-                      }
-
-                      requestAnimationFrame(() => {
-                        setTextBox(null)
-                      })
-                    }}
-                style={{
-                  position: "absolute",
-                  left: textBox.x,
-                  top: textBox.y,
-                  width: textBox.width,
-                  height: textBox.height,
-                  resize: "both",
-                  overflow: "hidden",
-                  border: "1px solid #3b82f6",
-                  outline: "none",
-                  background: "transparent",
-                  fontSize: "16px",
-                  padding: "4px",
-                }}
-              />
-            )}
+              requestAnimationFrame(() => {
+                setTextBox(null)
+              })
+            }}
+            style={{
+              position: 'absolute',
+              left: textBox.x,
+              top: textBox.y,
+              width: textBox.width,
+              height: textBox.height,
+              resize: 'both',
+              overflow: 'hidden',
+              border: '1px solid #3b82f6',
+              outline: 'none',
+              background: 'transparent',
+              fontSize: '16px',
+              padding: '4px',
+            }}
+          />
+        )}
       </div>
     </div>
   )
