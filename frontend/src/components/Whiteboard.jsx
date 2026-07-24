@@ -1,11 +1,33 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { Stage, Layer, Line, Rect, Text, Circle, Label, Tag, Transformer, Ellipse, Arrow, Star, Group } from 'react-konva'
+import { forwardRef, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import {
+  Stage, Layer, Line, Rect, Text, Circle, Label, Tag, Transformer,
+  Ellipse, Arrow, Star, Group, Image as KonvaImage
+} from 'react-konva'
 import * as Y from 'yjs'
 import PenPanel from "./PenPanel"
 import MiniPenBar from "./MiniPenBar"
 import ShapePanel from "./ShapePanel"
 
 const TOOLS = ['select', 'pen', 'text']
+const ImageShape = forwardRef(function ImageShape({ src, ...props }, ref) {
+  const [image, setImage] = useState(null)
+
+  useEffect(() => {
+    const element = new window.Image()
+
+    element.onload = () => {
+      setImage(element)
+    }
+
+    element.src = src
+
+    return () => {
+      element.onload = null
+    }
+  }, [src])
+
+  return <KonvaImage ref={ref} {...props} image={image} />
+})
 
 /**
  * IMPORTANT PATTERN — read this before touching this file:
@@ -41,6 +63,7 @@ export default function Whiteboard({ shapes, awareness }) {
   const startPoint = useRef(null)
   const stageRef = useRef(null)
   const canvasWrapRef = useRef(null)
+  const imageInputRef = useRef(null)
   const shapeNodeRefs = useRef({}) // id -> Konva node, so the Transformer can attach
   const transformerRef = useRef(null)
   const [stageSize, setStageSize] = useState({ width: 640, height: 520 })
@@ -130,7 +153,7 @@ export default function Whiteboard({ shapes, awareness }) {
     const map = selectedId ? getShapeMapById(selectedId) : null
     const resizableTypes = [
       'rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star',
-      'line', 'straight_line', 'arrow', 'text',
+      'line', 'straight_line', 'arrow', 'text','image',
     ]
     const node = selectedId && resizableTypes.includes(map?.get('type'))
       ? shapeNodeRefs.current[selectedId]
@@ -194,6 +217,48 @@ export default function Whiteboard({ shapes, awareness }) {
     if (map.get("type") !== "text") return
     map.set(property, value)
   }
+  function handleImageInsert(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+
+  if (!file || !file.type.startsWith('image/')) return
+
+  const reader = new FileReader()
+
+  reader.onload = () => {
+    const src = reader.result
+    const preview = new window.Image()
+
+    preview.onload = () => {
+      const maxSize = 360
+      const scale = Math.min(
+        maxSize / preview.naturalWidth,
+        maxSize / preview.naturalHeight,
+        1
+      )
+
+      const width = preview.naturalWidth * scale
+      const height = preview.naturalHeight * scale
+      const id = `${awareness.clientID}-${Date.now()}`
+      const map = new Y.Map()
+
+      map.set('id', id)
+      map.set('type', 'image')
+      map.set('src', src)
+      map.set('x', Math.max(20, (stageSize.width - width) / 2))
+      map.set('y', Math.max(20, (stageSize.height - height) / 2))
+      map.set('width', width)
+      map.set('height', height)
+
+      shapes.push([map])
+      setSelectedId(id)
+    }
+
+    preview.src = src
+  }
+
+  reader.readAsDataURL(file)
+}
 
   function pointerPos() {
     const stage = stageRef.current
@@ -430,6 +495,20 @@ export default function Whiteboard({ shapes, awareness }) {
               Shapes
             </button>
           </div>
+                    <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageInsert}
+          />
+
+          <button
+            className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
+            onClick={() => imageInputRef.current?.click()}
+          >
+            insert image
+          </button>
 
           <select
             value={background}
@@ -617,6 +696,18 @@ export default function Whiteboard({ shapes, awareness }) {
                   />
                 )
               }
+              if (type === 'image') {
+  return (
+    <ImageShape
+      {...commonProps}
+      src={map.get('src')}
+      width={map.get('width') || 0}
+      height={map.get('height') || 0}
+      onTransformEnd={(e) => handleRectTransformEnd(id, e)}
+    />
+  )
+}
+
               return null
             })}
 
