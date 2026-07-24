@@ -4,8 +4,9 @@ import * as Y from 'yjs'
 import PenPanel from "./PenPanel"
 import MiniPenBar from "./MiniPenBar"
 import ShapePanel from "./ShapePanel"
+import MiniShapeBar from "./MiniShapeBar"
 
-const TOOLS = ['select', 'pen', 'text']
+const TOOLS = ['select', 'pen', 'eraser', 'delete', 'text']
 
 /**
  * IMPORTANT PATTERN — read this before touching this file:
@@ -36,6 +37,7 @@ export default function Whiteboard({ shapes, awareness }) {
   const [, forceRender] = useReducer((x) => x + 1, 0)
   const [tool, setTool] = useState('select')
   const [selectedId, setSelectedId] = useState(null)
+  const [background, setBackground] = useState("#ffffff")
   const drawingShapeId = useRef(null)
   const startPoint = useRef(null)
   const stageRef = useRef(null)
@@ -44,25 +46,31 @@ export default function Whiteboard({ shapes, awareness }) {
   const transformerRef = useRef(null)
   const [stageSize, setStageSize] = useState({ width: 640, height: 520 })
   const [textBox, setTextBox] = useState(null)
+  const [fontSize, setFontSize] = useState(16)
+  const [fontFamily, setFontFamily] = useState("Arial")
+  const [fontColor, setFontColor] = useState("#000000")
   const [showPenPanel, setShowPenPanel] = useState(false)
+  const [showTextPanel, setShowTextPanel] = useState(false)
   const [showMiniPenBar, setShowMiniPenBar] = useState(false)
   const [showShapePanel, setShowShapePanel] = useState(false)
+  const [showMiniShapeBar, setShowMiniShapeBar] = useState(false)
+  const [eraserSize, setEraserSize] = useState(25)
+  const [eraserPos, setEraserPos] = useState(null)
+  const isMouseDownRef = useRef(false)
   const [shapePanelPosition, setShapePanelPosition] = useState({
-      x: 350,
-      y: 70,
+    x: 350,
+    y: 70,
   })
-   const [minimized, setMinimized] = useState(false)
+  const [minimized, setMinimized] = useState(false)
   const [penColor, setPenColor] = useState("#1e1e1e")
   const [strokeWidth, setStrokeWidth] = useState(2)
   const [opacity, setOpacity] = useState(100)
   const [penType, setPenType] = useState("normal")
   const penPanelRef = useRef(null)
   const [penPanelPosition, setPenPanelPosition] = useState({
-      x: 20,
-      y: 70,
-    })
-  
- 
+    x: 20,
+    y: 70,
+  })
 
   // Fill the whole panel instead of a fixed 640x520 box. Without this,
   // the canvas leaves dead space below/beside it whenever the window is
@@ -94,43 +102,42 @@ export default function Whiteboard({ shapes, awareness }) {
   }, [shapes])
 
   // Re-render on awareness changes (other users' cursors moving).
-
- // Close the Pen Panel when clicking outside of it
   useEffect(() => {
     const rerender = () => forceRender()
     awareness.on('change', rerender)
     return () => awareness.off('change', rerender)
   }, [awareness])
 
-
   // Close Pen Panel when clicking outside of it
-useEffect(() => {
-  function handleMouseDown(e) {
-    if (
-      showPenPanel &&
-      penPanelRef.current &&
-      !penPanelRef.current.contains(e.target)
-    ) {
-      setShowPenPanel(false)
+  useEffect(() => {
+    function handleMouseDown(e) {
+      if (
+        showPenPanel &&
+        penPanelRef.current &&
+        !penPanelRef.current.contains(e.target)
+      ) {
+        setShowPenPanel(false)
+      }
     }
-  }
 
-  document.addEventListener("mousedown", handleMouseDown)
+    document.addEventListener("mousedown", handleMouseDown)
 
-  return () => {
-    document.removeEventListener("mousedown", handleMouseDown)
-  }
-}, [showPenPanel])
-  // Keep the Transformer attached to the selected shape — but ONLY if it's
-  // a rect. Lines and text can be selected and moved, but have no
-  // onTransformEnd handler to persist a resize, so attaching the
-  // Transformer to them would let the user drag a resize handle that
-  // silently does nothing useful (and can leave a stale visual scale on
-  // the node until the next re-render). Restricting to 'rect' here keeps
-  // the code honest about what it actually supports.
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown)
+    }
+  }, [showPenPanel])
+
+  // Keep the Transformer attached to the selected shape — but ONLY for
+  // types that actually have a transform-end handler wired up below.
+  // Attaching to a type with no handler would let someone drag a resize
+  // handle that silently does nothing useful.
   useEffect(() => {
     const map = selectedId ? getShapeMapById(selectedId) : null
-    const node = selectedId && ['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'straight_line', 'arrow', 'text'].includes(map?.get('type'))
+    const resizableTypes = [
+      'rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star',
+      'line', 'straight_line', 'arrow', 'text',
+    ]
+    const node = selectedId && resizableTypes.includes(map?.get('type'))
       ? shapeNodeRefs.current[selectedId]
       : null
     if (transformerRef.current) {
@@ -147,6 +154,19 @@ useEffect(() => {
       const activeTag = document.activeElement?.tagName
       const isTypingElsewhere = activeTag === 'TEXTAREA' || activeTag === 'INPUT'
       if (isTypingElsewhere) return
+
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === '+' || e.key === '=' || e.code === 'Equal' || e.code === 'NumpadAdd') {
+          e.preventDefault()
+          setEraserSize((prev) => Math.min(150, prev + 5))
+          return
+        }
+        if (e.key === '-' || e.key === '_' || e.code === 'Minus' || e.code === 'NumpadSubtract') {
+          e.preventDefault()
+          setEraserSize((prev) => Math.max(5, prev - 5))
+          return
+        }
+      }
 
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         e.preventDefault()
@@ -185,47 +205,198 @@ useEffect(() => {
     setSelectedId(null)
   }
 
+  function updateSelectedText(property, value) {
+    if (!selectedId) return
+    const map = getShapeMapById(selectedId)
+    if (!map) return
+    if (map.get("type") !== "text") return
+    map.set(property, value)
+  }
+
+  function checkEraserCollision(node, pos, eraserRadius) {
+    if (!node) return false
+    try {
+      const box = node.getClientRect()
+      const cx = Math.max(box.x, Math.min(pos.x, box.x + box.width))
+      const cy = Math.max(box.y, Math.min(pos.y, box.y + box.height))
+      const dist = Math.hypot(pos.x - cx, pos.y - cy)
+      return dist <= eraserRadius
+    } catch (err) {
+      return false
+    }
+  }
+
+  function sliceLinePoints(points, eraserPos, eraserRadius) {
+    if (!points || points.length < 4) return []
+    const segments = []
+    let currentSeg = []
+
+    for (let i = 0; i < points.length; i += 2) {
+      const px = points[i]
+      const py = points[i + 1]
+      const dist = Math.hypot(px - eraserPos.x, py - eraserPos.y)
+
+      if (dist > eraserRadius) {
+        currentSeg.push(px, py)
+      } else {
+        if (currentSeg.length >= 4) {
+          segments.push(currentSeg)
+        }
+        currentSeg = []
+      }
+    }
+
+    if (currentSeg.length >= 4) {
+      segments.push(currentSeg)
+    }
+
+    return segments
+  }
+
+  function eraseShapesInRadius(pos) {
+    if (!pos) return
+    const toDelete = []
+    const toSplit = []
+
+    for (const [id, node] of Object.entries(shapeNodeRefs.current)) {
+      if (!node) continue
+      const map = getShapeMapById(id)
+      if (!map) continue
+
+      if (checkEraserCollision(node, pos, eraserSize)) {
+        if (map.get('type') === 'line') {
+          const pts = map.get('points') || []
+          const segs = sliceLinePoints(pts, pos, eraserSize)
+          toSplit.push({ id, segs, map })
+        } else if (map.get('type') !== 'eraser') {
+          toDelete.push(id)
+        }
+      }
+    }
+
+    toSplit.forEach(({ id, segs, map }) => {
+      const index = getShapeIndexById(id)
+      if (index !== -1) {
+        if (segs.length === 0) {
+          shapes.delete(index, 1)
+        } else {
+          map.set('points', segs[0])
+          for (let i = 1; i < segs.length; i++) {
+            const newId = `${awareness.clientID}-${Date.now()}-${i}`
+            const newMap = new Y.Map()
+            newMap.set('id', newId)
+            newMap.set('type', 'line')
+            newMap.set('points', segs[i])
+            newMap.set('color', map.get('color'))
+            newMap.set('strokeWidth', map.get('strokeWidth'))
+            newMap.set('opacity', map.get('opacity'))
+            newMap.set('penType', map.get('penType'))
+            shapes.insert(index + i, [newMap])
+          }
+        }
+      }
+    })
+
+    toDelete.forEach((id) => deleteShape(id))
+  }
+
+  function clearCanvas() {
+    if (shapes.length === 0) return
+    if (window.confirm('Clear all objects from the whiteboard?')) {
+      shapes.delete(0, shapes.length)
+      setSelectedId(null)
+    }
+  }
+
   function pointerPos() {
     const stage = stageRef.current
-    return stage.getPointerPosition()
+    return stage ? stage.getPointerPosition() : null
   }
 
   function handleStageMouseDown(e) {
+    isMouseDownRef.current = true
     if (showPenPanel) {
       setShowPenPanel(false)
       setShowMiniPenBar(true)
     }
+
+    const shapeToolsList = ['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'arrow']
+    if (showShapePanel && shapeToolsList.includes(tool)) {
+      setShowShapePanel(false)
+      setShowMiniShapeBar(true)
+    }
+
     // Clicked empty canvas background -> clear selection.
     if (e.target === stageRef.current) {
       setSelectedId(null)
     }
 
-    if (tool === 'select') return // drawing tools only, below
+    if (tool === "select") return // drawing tools only, below
+    if (tool === "delete") {
+      const pos = pointerPos()
+      if (pos && stageRef.current) {
+        const intersectedNode = stageRef.current.getIntersection(pos)
+        if (intersectedNode) {
+          let targetNode = intersectedNode
+          while (targetNode && targetNode !== stageRef.current) {
+            const shapeId = Object.keys(shapeNodeRefs.current).find(
+              (k) => shapeNodeRefs.current[k] === targetNode
+            )
+            if (shapeId) {
+              deleteShape(shapeId)
+              break
+            }
+            targetNode = targetNode.getParent ? targetNode.getParent() : null
+          }
+        }
+      }
+      return
+    }
+    if (tool === "eraser") {
+      const pos = pointerPos()
+      if (pos) {
+        setEraserPos(pos)
+        if (e && e.evt && (e.evt.shiftKey || e.evt.altKey)) {
+          eraseShapesInRadius(pos)
+          return
+        }
+        const id = `${awareness.clientID}-${Date.now()}`
+        const map = new Y.Map()
+        map.set('id', id)
+        map.set('type', 'eraser')
+        map.set('points', [pos.x, pos.y, pos.x, pos.y])
+        map.set('strokeWidth', eraserSize * 2)
+        map.set('createdAt', Date.now())
+
+        shapes.push([map])
+        drawingShapeId.current = id
+        startPoint.current = pos
+      }
+      return
+    }
+    if (textBox) return
 
     const pos = pointerPos()
     if (tool === 'text') {
-  setTextBox({
-    x: pos.x,
-    y: pos.y,
-    width: 200,
-    height: 80,
-    text: "",
-  })
-  return
-}
+      setTextBox({
+        x: pos.x,
+        y: pos.y,
+        width: 200,
+        height: 80,
+        text: "",
+      })
+      return
+    }
 
     const id = `${awareness.clientID}-${Date.now()}`
     const map = new Y.Map()
     map.set('id', id)
     const isLaser = tool === 'pen' && penType === 'laser'
-    map.set(
-      "color",
-      isLaser ? "#ff2d2d" : penColor
-    )
+    map.set('color', isLaser ? '#ff2d2d' : penColor)
     map.set('strokeWidth', strokeWidth)
-    map.set("opacity", opacity)
-    map.set("penType", isLaser ? "laser" : "normal")
-    map.set("createdAt", Date.now())
+    map.set('opacity', opacity)
+    map.set('penType', isLaser ? 'laser' : 'normal')
+    map.set('createdAt', Date.now())
 
     if (tool === 'pen') {
       map.set('type', 'line')
@@ -246,12 +417,24 @@ useEffect(() => {
     startPoint.current = pos
   }
 
-  function handleStageMouseMove() {
+  function handleStageMouseMove(e) {
     const pos = pointerPos()
     if (!pos) return
 
     // Broadcast cursor position to everyone else in the room.
     awareness.setLocalStateField('cursor', { x: pos.x, y: pos.y })
+
+    if (tool === 'eraser') {
+      setEraserPos(pos)
+      if (drawingShapeId.current) {
+        const map = getShapeMapById(drawingShapeId.current)
+        if (map && map.get('type') === 'eraser') {
+          const points = map.get('points')
+          map.set('points', [...points, pos.x, pos.y])
+        }
+      }
+      return
+    }
 
     if (!drawingShapeId.current) return
     const map = getShapeMapById(drawingShapeId.current)
@@ -269,28 +452,30 @@ useEffect(() => {
       map.set('points', [start.x, start.y, pos.x, pos.y])
     }
   }
-  // When the user releases the mouse button, if they were drawing a "laser" line, remove it after a short delay. This creates a temporary
-  // highlight effect that disappears automatically.
-    function handleStageMouseUp() {
-      const id = drawingShapeId.current
 
-      if (id) {
-        const shape = getShapeMapById(id)
+  // When the user releases the mouse button, if they were drawing a
+  // "laser" line, remove it after a short delay — a temporary highlight
+  // effect that disappears automatically.
+  function handleStageMouseUp() {
+    isMouseDownRef.current = false
+    const id = drawingShapeId.current
 
-        if (shape && shape.get("penType") === "laser") {
-          setTimeout(() => {
-            const index = getShapeIndexById(id)
-
-            if (index !== -1) {
-              shapes.delete(index, 1)
-            }
-          }, 1000) // Change to 2000 for 2 seconds
-        }
+    if (id) {
+      const shape = getShapeMapById(id)
+      if (shape && shape.get("penType") === "laser") {
+        setTimeout(() => {
+          const index = getShapeIndexById(id)
+          if (index !== -1) {
+            shapes.delete(index, 1)
+          }
+        }, 1000)
       }
-
-      drawingShapeId.current = null
-      startPoint.current = null
     }
+
+    drawingShapeId.current = null
+    startPoint.current = null
+  }
+
   // --- Move (drag) a shape: write the new position back into its Y.Map ---
   function handleShapeDragEnd(id, e) {
     const map = getShapeMapById(id)
@@ -322,7 +507,7 @@ useEffect(() => {
     }
   }
 
-  // --- Resize a line via the Transformer handles ---
+  // --- Resize a line/arrow via the Transformer handles ---
   function handleLineTransformEnd(id, e) {
     const map = getShapeMapById(id)
     if (!map) return
@@ -335,12 +520,12 @@ useEffect(() => {
     map.set('rotation', node.rotation())
     map.set('scaleX', (map.get('scaleX') || 1) * scaleX)
     map.set('scaleY', (map.get('scaleY') || 1) * scaleY)
-    
+
     node.scaleX(1)
     node.scaleY(1)
   }
 
-  // --- Resize a rectangle via the Transformer handles ---
+  // --- Resize a rect-family shape (or standalone text) via the Transformer ---
   function handleRectTransformEnd(id, e) {
     const map = getShapeMapById(id)
     if (!map) return
@@ -367,13 +552,29 @@ useEffect(() => {
   )
 
   const selectable = tool === 'select'
+  const shapeTools = ['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'arrow']
+
+  const selectedShapeBox = useMemo(() => {
+    if (!selectedId) return null
+    const node = shapeNodeRefs.current[selectedId]
+    if (!node) return null
+    try {
+      const box = node.getClientRect()
+      return {
+        x: box.x + box.width / 2,
+        y: Math.max(10, box.y - 45),
+      }
+    } catch (err) {
+      return null
+    }
+  }, [selectedId, shapes, forceRender])
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0 border-r border-border">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0">
-        <span className="font-medium text-text">Whiteboard</span>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-0.5 bg-bg-deep rounded-lg p-1 items-center">
+      <div className="flex items-center justify-between px-3 py-2 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0 min-w-0">
+        <span className="font-medium text-text shrink-0 mr-2">Whiteboard</span>
+        <div className="flex items-center gap-1.5 min-w-0 max-w-full overflow-x-auto">
+          <div className="flex gap-0.5 bg-bg-deep rounded-lg p-1 items-center shrink-0">
             {TOOLS.map((t) => (
               <button
                 key={t}
@@ -385,14 +586,19 @@ useEffect(() => {
                 onClick={() => {
                   setTool(t)
 
-                  if (t === "pen") {
+                  if (t === 'pen') {
                     setShowPenPanel(true)
-                    setShowMiniPenBar(false)
-                    setShowShapePanel(false)
+                    setShowTextPanel(false)
+                  } else if (t === 'text') {
+                    setShowPenPanel(false)
+                    setShowTextPanel(true)
                   } else {
                     setShowPenPanel(false)
-                    setShowMiniPenBar(false)
+                    setShowTextPanel(false)
                   }
+                  setShowMiniPenBar(false)
+                  setShowShapePanel(false)
+                  setShowMiniShapeBar(false)
                 }}
               >
                 {t}
@@ -400,32 +606,70 @@ useEffect(() => {
             ))}
             <button
               className={`px-2.5 py-1 rounded-md text-xs capitalize cursor-pointer transition-colors ${
-                ['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'arrow'].includes(tool)
+                shapeTools.includes(tool)
                   ? 'bg-accent text-bg-deep font-semibold'
                   : 'bg-transparent text-text-dim hover:text-text'
               }`}
               onClick={() => {
-                setShowShapePanel(!showShapePanel)
-                setShowPenPanel(false)
-                setShowMiniPenBar(false)
-                if (!['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'arrow'].includes(tool)) {
-                  setTool('rect')
+                if (showShapePanel || showMiniShapeBar) {
+                  setShowShapePanel(false)
+                  setShowMiniShapeBar(false)
+                } else {
+                  setShowShapePanel(true)
+                  setShowMiniShapeBar(false)
+                  setShowPenPanel(false)
+                  setShowMiniPenBar(false)
+                  setShowTextPanel(false)
+                  if (!shapeTools.includes(tool)) {
+                    setTool('rect')
+                  }
                 }
               }}
             >
               Shapes
             </button>
           </div>
-          <div className="w-px h-5 bg-border" />
+
+          {tool === 'eraser' && (
+            <div className="flex items-center gap-1 px-2 py-1 bg-bg-deep border border-border rounded-lg text-xs text-text-dim shrink-0">
+              <span className="font-semibold text-text">{eraserSize * 2}px</span>
+              <button
+                onClick={() => setEraserSize((prev) => Math.max(5, prev - 5))}
+                className="px-1.5 py-0.5 rounded bg-bg-panel border border-border hover:text-text font-bold cursor-pointer"
+                title="Decrease Size (Ctrl -)"
+              >
+                -
+              </button>
+              <button
+                onClick={() => setEraserSize((prev) => Math.min(150, prev + 5))}
+                className="px-1.5 py-0.5 rounded bg-bg-panel border border-border hover:text-text font-bold cursor-pointer"
+                title="Increase Size (Ctrl +)"
+              >
+                +
+              </button>
+            </div>
+          )}
+
+          <select
+            value={background}
+            onChange={(e) => setBackground(e.target.value)}
+            className="px-2 py-1 rounded-md text-xs border border-border bg-white text-black shrink-0"
+          >
+            <option value="#ffffff">White</option>
+            <option value="#000000">Black</option>
+            <option value="#008000">Green</option>
+          </select>
+
+          <div className="w-px h-5 bg-border shrink-0" />
           <button
-            className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
+            className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
             onClick={() => undoManager.undo()}
             title="Ctrl+Z"
           >
             undo
           </button>
           <button
-            className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
+            className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
             onClick={() => undoManager.redo()}
             title="Ctrl+Shift+Z"
           >
@@ -433,18 +677,43 @@ useEffect(() => {
           </button>
           {selectedId && (
             <button
-              className="px-2.5 py-1 rounded-md text-xs bg-transparent border border-accent-2 text-accent-2 hover:bg-accent-2 hover:text-bg-deep"
+              className="px-2.5 py-1 rounded-md text-xs bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white shrink-0 font-medium transition-colors cursor-pointer"
               onClick={() => deleteShape(selectedId)}
+              title="Delete Selected Shape"
             >
-               delete
+              delete
             </button>
           )}
+          <button
+            className="px-2.5 py-1 rounded-md text-xs bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white shrink-0 font-medium transition-colors cursor-pointer"
+            onClick={clearCanvas}
+            title="Clear all shapes from whiteboard"
+          >
+            Clear All
+          </button>
         </div>
       </div>
-      <div
-          ref={canvasWrapRef}
-          className="flex-1 min-h-0 bg-bg-deep relative"
-        >
+      <div ref={canvasWrapRef} className="flex-1 min-h-0 relative" style={{ background }}>
+        {selectedId && selectedShapeBox && (
+          <div
+            className="absolute z-40 flex items-center gap-1 px-2 py-1 bg-bg-panel border border-border rounded-lg shadow-xl -translate-x-1/2 transition-all pointer-events-auto"
+            style={{
+              left: selectedShapeBox.x,
+              top: selectedShapeBox.y,
+            }}
+          >
+            <button
+              onClick={() => deleteShape(selectedId)}
+              className="flex items-center gap-1 px-2.5 py-1 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded text-xs font-semibold cursor-pointer transition-colors"
+              title="Delete shape (Delete/Backspace)"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Delete
+            </button>
+          </div>
+        )}
         <Stage
           ref={stageRef}
           width={stageSize.width}
@@ -452,8 +721,18 @@ useEffect(() => {
           onMouseDown={handleStageMouseDown}
           onMouseMove={handleStageMouseMove}
           onMouseUp={handleStageMouseUp}
-          className="bg-white"
-          style={{ cursor: tool === 'pen' && penType === 'laser' ? 'pointer' : 'default' }}
+          onMouseLeave={() => {
+            isMouseDownRef.current = false
+            setEraserPos(null)
+          }}
+          style={{
+            cursor:
+              tool === 'pen' && penType === 'laser'
+                ? 'pointer'
+                : tool === 'eraser'
+                ? 'none'
+                : 'default',
+          }}
         >
           <Layer>
             {Array.from(shapes).map((map) => {
@@ -474,25 +753,63 @@ useEffect(() => {
                 scaleX: map.get('scaleX') || 1,
                 scaleY: map.get('scaleY') || 1,
                 draggable: selectable,
-                onClick: () => selectable && setSelectedId(id),
-                onTap: () => selectable && setSelectedId(id),
+                onClick: (e) => {
+                  if (tool === 'delete') {
+                    deleteShape(id)
+                  } else if (tool === 'eraser') {
+                    if (e && e.evt && (e.evt.shiftKey || e.evt.altKey)) {
+                      deleteShape(id)
+                    }
+                  } else if (selectable) {
+                    setSelectedId(id)
+                  }
+                },
+                onTap: () => {
+                  if (tool === 'delete') {
+                    deleteShape(id)
+                  } else if (selectable) {
+                    setSelectedId(id)
+                  }
+                },
                 onDragEnd: (e) => handleShapeDragEnd(id, e),
                 onDblClick: (e) => handleShapeDblClick(id, e),
                 onDblTap: (e) => handleShapeDblClick(id, e),
               }
 
+              if (type === 'eraser') {
+                return (
+                  <Line
+                    key={id}
+                    ref={(node) => {
+                      if (node) shapeNodeRefs.current[id] = node
+                      else delete shapeNodeRefs.current[id]
+                    }}
+                    points={map.get('points') || []}
+                    stroke="#000000"
+                    strokeWidth={map.get('strokeWidth') || 40}
+                    lineCap="round"
+                    lineJoin="round"
+                    globalCompositeOperation="destination-out"
+                    listening={false}
+                  />
+                )
+              }
+
               if (type === 'line' || type === 'straight_line' || type === 'arrow') {
+                const isLaser = map.get('penType') === 'laser'
                 const strokeProps = {
                   stroke: isSelected ? '#89b4fa' : color,
-                  strokeWidth: map.get("penType") === "laser"
-                    ? map.get("strokeWidth") + 1
-                    : (isSelected ? map.get("strokeWidth") + 1 : map.get("strokeWidth")),
-                  opacity: (map.get("opacity") ?? 100) / 100,
-                  shadowColor: map.get("penType") === "laser" ? "#ff0000" : undefined,
-                  shadowBlur: map.get("penType") === "laser" ? 12 : 0,
-                  shadowOpacity: map.get("penType") === "laser" ? 1 : 0,
-                  shadowEnabled: map.get("penType") === "laser"
-                };
+                  strokeWidth: isLaser
+                    ? map.get('strokeWidth') + 1
+                    : isSelected
+                    ? map.get('strokeWidth') + 1
+                    : map.get('strokeWidth'),
+                  opacity: (map.get('opacity') ?? 100) / 100,
+                  shadowColor: isLaser ? '#ff0000' : undefined,
+                  shadowBlur: isLaser ? 12 : 0,
+                  shadowOpacity: isLaser ? 1 : 0,
+                  shadowEnabled: isLaser,
+                }
 
                 if (type === 'arrow') {
                   return (
@@ -519,34 +836,42 @@ useEffect(() => {
                   />
                 )
               }
+
               if (['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star'].includes(type)) {
                 const shapeProps = {
-                  stroke: map.get("penType") === "laser" ? "#ff0000" : (isSelected ? "#89b4fa" : color),
+                  stroke: map.get('penType') === 'laser' ? '#ff0000' : isSelected ? '#89b4fa' : color,
                   strokeWidth: isSelected ? 3 : 2,
-                };
-                
-                const w = map.get('width') || 0;
-                const h = map.get('height') || 0;
-                const sx = map.get('x') || 0;
-                const sy = map.get('y') || 0;
-                const absW = Math.abs(w);
-                const absH = Math.abs(h);
+                }
 
-                let innerNode = null;
+                const w = map.get('width') || 0
+                const h = map.get('height') || 0
+                const absW = Math.abs(w)
+                const absH = Math.abs(h)
+
+                let innerNode = null
                 if (type === 'rect') {
                   innerNode = <Rect {...shapeProps} width={w} height={h} />
                 } else if (type === 'circle') {
-                  innerNode = <Circle {...shapeProps} x={w/2} y={h/2} radius={Math.max(absW, absH) / 2} />
+                  innerNode = <Circle {...shapeProps} x={w / 2} y={h / 2} radius={Math.max(absW, absH) / 2} />
                 } else if (type === 'ellipse') {
-                  innerNode = <Ellipse {...shapeProps} x={w/2} y={h/2} radiusX={absW / 2} radiusY={absH / 2} />
+                  innerNode = <Ellipse {...shapeProps} x={w / 2} y={h / 2} radiusX={absW / 2} radiusY={absH / 2} />
                 } else if (type === 'triangle') {
-                  const pts = [w/2, 0, w, h, 0, h];
+                  const pts = [w / 2, 0, w, h, 0, h]
                   innerNode = <Line {...shapeProps} points={pts} closed={true} />
                 } else if (type === 'diamond') {
-                  const pts = [w/2, 0, w, h/2, w/2, h, 0, h/2];
+                  const pts = [w / 2, 0, w, h / 2, w / 2, h, 0, h / 2]
                   innerNode = <Line {...shapeProps} points={pts} closed={true} />
                 } else if (type === 'star') {
-                  innerNode = <Star {...shapeProps} x={w/2} y={h/2} numPoints={5} innerRadius={Math.max(absW, absH) / 4} outerRadius={Math.max(absW, absH) / 2} />
+                  innerNode = (
+                    <Star
+                      {...shapeProps}
+                      x={w / 2}
+                      y={h / 2}
+                      numPoints={5}
+                      innerRadius={Math.max(absW, absH) / 4}
+                      outerRadius={Math.max(absW, absH) / 2}
+                    />
+                  )
                 }
 
                 return (
@@ -568,13 +893,15 @@ useEffect(() => {
                   </Group>
                 )
               }
+
               if (type === 'text') {
                 return (
                   <Text
                     {...commonProps}
                     text={map.get('text')}
-                    fill={isSelected ? '#89b4fa' : color}
-                    fontSize={16}
+                    fill={isSelected ? '#89b4fa' : map.get('color') || color}
+                    fontSize={map.get('fontSize') || 16}
+                    fontFamily={map.get('fontFamily') || 'Arial'}
                     onTransformEnd={(e) => handleRectTransformEnd(id, e)}
                   />
                 )
@@ -582,9 +909,9 @@ useEffect(() => {
               return null
             })}
 
-            {/* Resize handles for the selected rectangle only — lines/text
-                can be moved but not resized in this pass (documented
-                limitation, not an oversight: see README). */}
+            {/* Resize/rotate handles for the selected shape (see the
+                resizableTypes list above for exactly which types support
+                this) */}
             <Transformer
               ref={transformerRef}
               rotateEnabled={true}
@@ -619,106 +946,231 @@ useEffect(() => {
               ) : null
             )}
           </Layer>
+
+          {/* Dedicated top layer for the eraser circle cursor overlay (always stays crisp & visible on top) */}
+          <Layer listening={false}>
+            {tool === 'eraser' && eraserPos && (
+              <Circle
+                x={eraserPos.x}
+                y={eraserPos.y}
+                radius={eraserSize}
+                stroke="#ef4444"
+                strokeWidth={2}
+                dash={[4, 4]}
+                fill="rgba(239, 68, 68, 0.15)"
+              />
+            )}
+          </Layer>
         </Stage>
-          {showPenPanel && (
-            <div ref={penPanelRef}>
-              <PenPanel
-                penColor={penColor}
-                setPenColor={setPenColor}
-                strokeWidth={strokeWidth}
-                setStrokeWidth={setStrokeWidth}
-                opacity={opacity}
-                setOpacity={setOpacity}
-                penType={penType}
-                setPenType={setPenType}
-                position={penPanelPosition}
-                setPosition={setPenPanelPosition}
+
+        {showTextPanel && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 20,
+              top: 70,
+              width: 250,
+              background: '#fff',
+              borderRadius: '16px',
+              padding: '18px',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+              border: '1px solid #ddd',
+              zIndex: 1000,
+            }}
+          >
+            <h3 style={{ marginBottom: 15 }}>Text Settings</h3>
+
+            <div style={{ marginBottom: 15 }}>
+              <div style={{ marginBottom: 5 }}>Font Family</div>
+              <select
+                value={fontFamily}
+                style={{ width: '100%', padding: '8px', borderRadius: '8px' }}
+                onChange={(e) => {
+                  setFontFamily(e.target.value)
+                  updateSelectedText('fontFamily', e.target.value)
+                }}
+              >
+                <option value="Arial">Arial</option>
+                <option value="Verdana">Verdana</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Tahoma">Tahoma</option>
+                <option value="Courier New">Courier New</option>
+                <option value="Times New Roman">Times New Roman</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 15 }}>
+              <div style={{ marginBottom: 5 }}>Font Size</div>
+              <input
+                type="range"
+                min="8"
+                max="72"
+                value={fontSize}
+                style={{ width: '100%' }}
+                onChange={(e) => {
+                  const value = Number(e.target.value)
+                  setFontSize(value)
+                  updateSelectedText('fontSize', value)
+                }}
+              />
+              <div>{fontSize}px</div>
+            </div>
+
+            <div>
+              <div style={{ marginBottom: 5 }}>Font Color</div>
+              <input
+                type="color"
+                value={fontColor}
+                style={{ width: '100%', height: '40px', border: 'none' }}
+                onChange={(e) => {
+                  setFontColor(e.target.value)
+                  updateSelectedText('color', e.target.value)
+                }}
               />
             </div>
-          )}
-          {showMiniPenBar && (
-            <MiniPenBar
-                onExpand={() => {
-                  setPenPanelPosition({
-                    x: penPanelPosition.x,
-                    y: penPanelPosition.y + 45,
-                  })
+          </div>
+        )}
 
-                  setShowMiniPenBar(false)
-                  setShowPenPanel(true)
-                }}
-              onClose={() => {
-                setShowMiniPenBar(false)
-              }}
+        {showPenPanel && (
+          <div ref={penPanelRef}>
+            <PenPanel
+              penColor={penColor}
+              setPenColor={setPenColor}
+              strokeWidth={strokeWidth}
+              setStrokeWidth={setStrokeWidth}
+              opacity={opacity}
+              setOpacity={setOpacity}
+              penType={penType}
+              setPenType={setPenType}
               position={penPanelPosition}
               setPosition={setPenPanelPosition}
             />
-          )}
-          {showShapePanel && (
-            <ShapePanel
-              tool={tool}
-              setTool={(t) => setTool(t)}
-              position={shapePanelPosition}
-              setPosition={setShapePanelPosition}
-              onClose={() => setShowShapePanel(false)}
-            />
-          )}
+          </div>
+        )}
+
+        {showMiniPenBar && (
+          <MiniPenBar
+            onExpand={() => {
+              setPenPanelPosition({
+                x: penPanelPosition.x,
+                y: penPanelPosition.y + 45,
+              })
+              setShowMiniPenBar(false)
+              setShowPenPanel(true)
+            }}
+            onClose={() => {
+              setShowMiniPenBar(false)
+            }}
+            position={penPanelPosition}
+            setPosition={setPenPanelPosition}
+          />
+        )}
+
+        {showShapePanel && (
+          <ShapePanel
+            tool={tool}
+            setTool={(t) => setTool(t)}
+            penColor={penColor}
+            setPenColor={(color) => {
+              setPenColor(color)
+              if (selectedId) {
+                const map = getShapeMapById(selectedId)
+                if (map) map.set('color', color)
+              }
+            }}
+            position={shapePanelPosition}
+            setPosition={setShapePanelPosition}
+            onMinimize={() => {
+              setShowShapePanel(false)
+              setShowMiniShapeBar(true)
+            }}
+            onClose={() => {
+              setShowShapePanel(false)
+              setShowMiniShapeBar(false)
+            }}
+          />
+        )}
+
+        {showMiniShapeBar && (
+          <MiniShapeBar
+            tool={tool}
+            setTool={(t) => setTool(t)}
+            penColor={penColor}
+            setPenColor={(color) => {
+              setPenColor(color)
+              if (selectedId) {
+                const map = getShapeMapById(selectedId)
+                if (map) map.set('color', color)
+              }
+            }}
+            position={shapePanelPosition}
+            setPosition={setShapePanelPosition}
+            onExpand={() => {
+              setShowMiniShapeBar(false)
+              setShowShapePanel(true)
+            }}
+            onClose={() => setShowMiniShapeBar(false)}
+          />
+        )}
+
         {textBox && (
-              <textarea
-             
-                value={textBox.text}
-                onChange={(e) =>
-                  setTextBox({
-                    ...textBox,
-                    text: e.target.value,
-                  })
+          <textarea
+            value={textBox.text}
+            onChange={(e) =>
+              setTextBox({
+                ...textBox,
+                text: e.target.value,
+              })
+            }
+            onBlur={() => {
+              if (!textBox.text.trim() && !textBox.id) {
+                setTextBox(null)
+                return
+              }
+
+              if (textBox.id) {
+                const map = getShapeMapById(textBox.id)
+                if (map) {
+                  if (!textBox.text.trim() && map.get('type') === 'text') {
+                    const index = getShapeIndexById(textBox.id)
+                    if (index !== -1) shapes.delete(index, 1)
+                  } else {
+                    map.set('text', textBox.text)
+                  }
                 }
-                onBlur={() => {
-                      if (!textBox.text.trim() && !textBox.id) {
-                        setTextBox(null)
-                        return
-                      }
+              } else {
+                const map = new Y.Map()
+                map.set('id', `${awareness.clientID}-${Date.now()}`)
+                map.set('type', 'text')
+                map.set('x', textBox.x)
+                map.set('y', textBox.y)
+                map.set('text', textBox.text)
+                map.set('fontSize', fontSize)
+                map.set('fontFamily', fontFamily)
+                map.set('color', fontColor)
+                shapes.push([map])
+              }
 
-                      if (textBox.id) {
-                        const map = getShapeMapById(textBox.id)
-                        if (map) {
-                          if (!textBox.text.trim() && map.get('type') === 'text') {
-                            const index = getShapeIndexById(textBox.id)
-                            if (index !== -1) shapes.delete(index, 1)
-                          } else {
-                            map.set('text', textBox.text)
-                          }
-                        }
-                      } else {
-                        const map = new Y.Map()
-                        map.set("id", `${awareness.clientID}-${Date.now()}`)
-                        map.set("type", "text")
-                        map.set("x", textBox.x)
-                        map.set("y", textBox.y)
-                        map.set("text", textBox.text)
-                        map.set("color", awareness.getLocalState()?.user?.color || "#000")
-
-                        shapes.push([map])
-                      }
-
-                      setTextBox(null)
-                    }}
-                style={{
-                  position: "absolute",
-                  left: textBox.x,
-                  top: textBox.y,
-                  width: textBox.width,
-                  height: textBox.height,
-                  resize: "both",
-                  overflow: "hidden",
-                  border: "1px solid #3b82f6",
-                  outline: "none",
-                  background: "transparent",
-                  fontSize: "16px",
-                  padding: "4px",
-                }}
-              />
-            )}
+              requestAnimationFrame(() => {
+                setTextBox(null)
+              })
+            }}
+            style={{
+              position: 'absolute',
+              left: textBox.x,
+              top: textBox.y,
+              width: textBox.width,
+              height: textBox.height,
+              resize: 'both',
+              overflow: 'hidden',
+              border: '1px solid #3b82f6',
+              outline: 'none',
+              background: 'transparent',
+              fontSize: '16px',
+              padding: '4px',
+            }}
+          />
+        )}
       </div>
     </div>
   )

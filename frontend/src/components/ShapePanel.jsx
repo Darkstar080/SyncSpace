@@ -11,11 +11,26 @@ const SHAPES = [
   { id: "star", label: "★ Star" },
 ];
 
+const COLORS = [
+  "#1e1e1e",
+  "#e03131",
+  "#1971c2",
+  "#2f9e44",
+  "#f08c00",
+  "#ae3ec9",
+  "#ff6b6b",
+  "#4d96ff",
+  "#ffffff"
+];
+
 export default function ShapePanel({
   tool,
   setTool,
+  penColor,
+  setPenColor,
   position,
   setPosition,
+  onMinimize,
   onClose,
 }) {
   const [dragging, setDragging] = useState(false);
@@ -54,18 +69,30 @@ export default function ShapePanel({
         cursor: dragging ? "grabbing" : "grab",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
         <span style={{ fontWeight: "600", fontSize: "15px" }}>Shapes & Lines</span>
-        <button
-          onMouseDown={(e) => e.stopPropagation()} // Prevent dragging
-          onClick={onClose}
-          style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: "16px" }}
-        >
-          ✕
-        </button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {onMinimize && (
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={onMinimize}
+              title="Minimize Panel"
+              style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: "14px", color: "#666" }}
+            >
+              ▲
+            </button>
+          )}
+          <button
+            onMouseDown={(e) => e.stopPropagation()} // Prevent dragging
+            onClick={onClose}
+            style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: "16px", color: "#666" }}
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "16px" }}>
         {SHAPES.map((shape) => (
           <button
             key={shape.id}
@@ -84,6 +111,64 @@ export default function ShapePanel({
             {shape.label}
           </button>
         ))}
+      </div>
+
+      {/* Color Selector Section */}
+      <div style={{ paddingTop: "12px", borderTop: "1px solid #eee" }}>
+        <div style={{ fontSize: "14px", fontWeight: "600", marginBottom: "10px" }}>
+          Shape Color
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          {COLORS.map((color) => (
+            <div
+              key={color}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setPenColor && setPenColor(color)}
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: "50%",
+                background: color,
+                cursor: "pointer",
+                border: penColor === color ? "2.5px solid #2563eb" : "1px solid #ccc",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                transition: "transform 0.1s",
+              }}
+              title={color}
+            />
+          ))}
+
+          {/* Custom Color Input */}
+          <div
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              position: "relative",
+              width: 24,
+              height: 24,
+              borderRadius: "50%",
+              overflow: "hidden",
+              border: "1px solid #ccc",
+              cursor: "pointer",
+            }}
+            title="Custom Color"
+          >
+            <input
+              type="color"
+              value={penColor || "#1e1e1e"}
+              onChange={(e) => setPenColor && setPenColor(e.target.value)}
+              style={{
+                position: "absolute",
+                top: -5,
+                left: -5,
+                width: 34,
+                height: 34,
+                cursor: "pointer",
+                border: "none",
+                background: "transparent",
+              }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
