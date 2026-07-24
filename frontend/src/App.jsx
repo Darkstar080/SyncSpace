@@ -3,8 +3,9 @@ import AuthScreen from './components/AuthScreen'
 import JoinScreen from './components/JoinScreen'
 import Whiteboard from './components/Whiteboard'
 import CodeEditor from './components/CodeEditor'
+import ConnectionBanner from './components/ConnectionBanner'
 import { createRoomConnection, destroyRoomConnection, randomColor } from './lib/yjs'
-import { getToken, getUsername } from './lib/api'
+import { getToken, getUsername, clearSession } from './lib/api'
 
 export default function App() {
   const [username, setUsername] = useState(getUsername())
@@ -37,6 +38,12 @@ export default function App() {
     setConnection(null)
     setUsers([])
     setStatus('disconnected')
+  }
+
+  function handleSessionExpired() {
+    clearSession()
+    handleLeaveRoom()
+    setUsername(null)
   }
 
   useEffect(() => {
@@ -97,6 +104,12 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      <ConnectionBanner
+        status={status}
+        provider={connection.provider}
+        onSessionExpired={handleSessionExpired}
+      />
 
       <main className="flex-1 flex min-h-0">
         <Whiteboard shapes={connection.shapes} awareness={connection.awareness} />
