@@ -2,6 +2,37 @@ import { useState } from 'react'
 import { login, register } from '../lib/api'
 
 /**
+ * Small toggle button placed inside a password field to reveal/hide the
+ * typed value. Kept as a tiny local component since both the password
+ * and confirm-password fields need the exact same button.
+ */
+function PasswordToggleButton({ visible, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      tabIndex={-1}
+      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 cursor-pointer opacity-70 hover:opacity-100"
+      style={{ color: 'var(--auth-text-dim)' }}
+      aria-label={visible ? 'Hide password' : 'Show password'}
+    >
+      {visible ? (
+        // eye-off icon
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M3 3l18 18M10.58 10.58a2 2 0 002.83 2.83M9.88 4.24A9.53 9.53 0 0112 4c5 0 9 4 10 8-.36 1.28-1 2.5-1.85 3.55M6.5 6.5C4.5 8 3.13 10 2 12c1 4 5 8 10 8a9.5 9.5 0 004.24-.99" />
+        </svg>
+      ) : (
+        // eye icon
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8-10-8-10-8z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      )}
+    </button>
+  )
+}
+
+/**
  * Design notes (so future edits stay consistent with the intent):
  * - Palette and fonts here are scoped to THIS component via inline CSS
  *   custom properties on the wrapping div — deliberately not touching
@@ -19,6 +50,8 @@ export default function AuthScreen({ onAuthenticated }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [loading, setLoading] = useState(false)
@@ -289,22 +322,28 @@ export default function AuthScreen({ onAuthenticated }) {
             <span className="auth-mono text-xs" style={{ color: 'var(--auth-text-dim)' }}>
               // password
             </span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value)
-                if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }))
-                if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }))
-              }}
-              placeholder="At least 6 characters"
-              className="auth-mono auth-input rounded-md px-3 py-2.5 text-sm border outline-none"
-              style={{
-                background: 'var(--auth-panel)',
-                borderColor: fieldErrors.password ? 'var(--auth-coral)' : 'var(--auth-border)',
-                color: 'var(--auth-text)',
-              }}
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }))
+                  if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }))
+                }}
+                placeholder="At least 6 characters"
+                className="auth-mono auth-input rounded-md pl-3 pr-10 py-2.5 text-sm border outline-none w-full"
+                style={{
+                  background: 'var(--auth-panel)',
+                  borderColor: fieldErrors.password ? 'var(--auth-coral)' : 'var(--auth-border)',
+                  color: 'var(--auth-text)',
+                }}
+              />
+              <PasswordToggleButton
+                visible={showPassword}
+                onClick={() => setShowPassword((v) => !v)}
+              />
+            </div>
             {fieldErrors.password && (
               <span className="auth-mono text-xs" style={{ color: 'var(--auth-coral)' }}>
                 {fieldErrors.password}
@@ -317,21 +356,27 @@ export default function AuthScreen({ onAuthenticated }) {
               <span className="auth-mono text-xs" style={{ color: 'var(--auth-text-dim)' }}>
                 // confirm password
               </span>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value)
-                  if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }))
-                }}
-                placeholder="Type your password again"
-                className="auth-mono auth-input rounded-md px-3 py-2.5 text-sm border outline-none"
-                style={{
-                  background: 'var(--auth-panel)',
-                  borderColor: fieldErrors.confirmPassword ? 'var(--auth-coral)' : 'var(--auth-border)',
-                  color: 'var(--auth-text)',
-                }}
-              />
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value)
+                    if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }))
+                  }}
+                  placeholder="Type your password again"
+                  className="auth-mono auth-input rounded-md pl-3 pr-10 py-2.5 text-sm border outline-none w-full"
+                  style={{
+                    background: 'var(--auth-panel)',
+                    borderColor: fieldErrors.confirmPassword ? 'var(--auth-coral)' : 'var(--auth-border)',
+                    color: 'var(--auth-text)',
+                  }}
+                />
+                <PasswordToggleButton
+                  visible={showConfirmPassword}
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                />
+              </div>
               {fieldErrors.confirmPassword && (
                 <span className="auth-mono text-xs" style={{ color: 'var(--auth-coral)' }}>
                   {fieldErrors.confirmPassword}
