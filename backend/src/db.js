@@ -37,7 +37,12 @@ let db = null
  * that crash startup, not swallow it (see the rationale above).
  */
 export async function connectDB() {
-  client = new MongoClient(MONGO_URI, { serverSelectionTimeoutMS: 5000 })
+  // 5s was too aggressive for some networks — a slower (but not
+  // actually blocked) path to Atlas's servers could time out here even
+  // though the connection would succeed given a bit more time. This
+  // doesn't fix an actual network block, just avoids a false failure
+  // on a marginal connection.
+  client = new MongoClient(MONGO_URI, { serverSelectionTimeoutMS: 20000 })
   await client.connect()
   db = client.db() // uses the database name embedded in MONGODB_URI
 
