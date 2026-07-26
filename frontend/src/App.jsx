@@ -9,13 +9,15 @@ import { getToken, getUsername, clearSession } from './lib/api'
 import ChatButton from './components/Chat/ChatButton'
 import ChatWindow from './components/Chat/ChatWindow'
 
+
 export default function App() {
   const [username, setUsername] = useState(getUsername())
   const [connection, setConnection] = useState(null)
   const [status, setStatus] = useState('disconnected')
   const [users, setUsers] = useState([])
   const connectionRef = useRef(null)
-  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   function handleJoin({ room, pin }) {
     const user = { name: username, color: randomColor() }
@@ -126,8 +128,15 @@ export default function App() {
         }}
       />
       <ChatWindow
+        chatMessages={connection.chatMessages}
+        awareness={connection.awareness}
         isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
+        isMinimized={isMinimized}
+        onMinimize={() => setIsMinimized((prev) => !prev)}
+        onClose={() => {
+          setIsChatOpen(false);
+          setIsMinimized(false);
+        }}
       />
     </div>
   )
