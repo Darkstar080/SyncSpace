@@ -7,7 +7,7 @@ import NewFileModal from "./NewFileModal";
 import { saveFile } from "./saveFile";
 
 
-export default function CodeEditor({ codeText, awareness }) {
+export default function CodeEditor({ codeText, awareness, theme = 'dark' }) {
   const bindingRef = useRef(null)
   const fileInputRef = useRef(null)
   const [language, setLanguage] = useState("python")
@@ -20,7 +20,7 @@ export default function CodeEditor({ codeText, awareness }) {
   return saved
     ? JSON.parse(saved)
     : {
-        theme: "vs-dark",
+        theme:theme === 'dark' ? 'vs-dark' : 'vs',
         fontSize: 14,
         wordWrap: "off",
         minimap: false,

@@ -6,13 +6,36 @@ import CodeEditor from './components/CodeEditor'
 import ConnectionBanner from './components/ConnectionBanner'
 import { createRoomConnection, destroyRoomConnection, randomColor } from './lib/yjs'
 import { getToken, getUsername, clearSession } from './lib/api'
+import { getInitialTheme, applyToDocument, setExplicitTheme, watchSystemTheme, hasExplicitPreference } from './lib/theme'
 
 export default function App() {
   const [username, setUsername] = useState(getUsername())
   const [connection, setConnection] = useState(null)
   const [status, setStatus] = useState('disconnected')
   const [users, setUsers] = useState([])
+  const [theme, setTheme] = useState(() => getInitialTheme())
   const connectionRef = useRef(null)
+
+  useEffect(() => {
+    applyToDocument(theme)
+  }, [theme])
+
+  // Follow the OS's light/dark setting live — but ONLY if the user has
+  // never explicitly toggled the theme themselves. An explicit choice
+  // always wins and is never silently overridden by a system change.
+  useEffect(() => {
+    return watchSystemTheme((systemTheme) => {
+      if (!hasExplicitPreference()) {
+        setTheme(systemTheme)
+      }
+    })
+  }, [])
+
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setExplicitTheme(next) // persists the explicit choice
+    setTheme(next)
+  }
 
   function handleJoin({ room, pin }) {
     const user = { name: username, color: randomColor() }
@@ -61,6 +84,8 @@ export default function App() {
         onLogout={() => {
           setUsername(null)
         }}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
     )
   }
@@ -81,6 +106,13 @@ export default function App() {
           </button>
         </div>
         <div className="flex items-center gap-2.5">
+          <button
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="text-xs text-text-dim border border-border rounded-full px-2.5 py-1 cursor-pointer hover:text-text"
+          >
+            {theme === 'dark' ? '☀' : '☾'}
+          </button>
           <span
             className={`w-2 h-2 rounded-full ${
               status === 'connected'
@@ -113,7 +145,7 @@ export default function App() {
 
       <main className="flex-1 flex min-h-0">
         <Whiteboard shapes={connection.shapes} awareness={connection.awareness} />
-        <CodeEditor codeText={connection.codeText} awareness={connection.awareness} />
+        <CodeEditor codeText={connection.codeText} awareness={connection.awareness} theme={theme} />
       </main>
     </div>
   )

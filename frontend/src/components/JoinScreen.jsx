@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createRoom, getMyRooms, getUsername, clearSession, verifyRoomAccess } from '../lib/api'
 
-export default function JoinScreen({ onJoin, onLogout }) {
+export default function JoinScreen({ onJoin, onLogout, theme, onToggleTheme }) {
   const [myRooms, setMyRooms] = useState([])
   const [loadingRooms, setLoadingRooms] = useState(true)
   const [roomsError, setRoomsError] = useState('')
@@ -78,7 +78,7 @@ export default function JoinScreen({ onJoin, onLogout }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_30%_20%,#232338_0%,var(--color-bg)_60%)] p-6">
+    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_30%_20%,var(--color-bg-deep)_0%,var(--color-bg)_60%)] p-6">
       <div className="w-full max-w-md flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <div>
@@ -87,12 +87,21 @@ export default function JoinScreen({ onJoin, onLogout }) {
             </h1>
             <p className="m-0 text-text-dim text-xs mt-1">Signed in as {getUsername()}</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="text-xs text-text-dim underline cursor-pointer bg-transparent border-none"
-          >
-            Log out
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onToggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="text-xs text-text-dim border border-border rounded-full px-2.5 py-1 cursor-pointer hover:text-text"
+            >
+              {theme === 'dark' ? '☀' : '☾'}
+            </button>
+            <button
+              onClick={handleLogout}
+              className="text-xs text-text-dim underline cursor-pointer bg-transparent border-none"
+            >
+              Log out
+            </button>
+          </div>
         </div>
 
         {/* Join an existing room */}
