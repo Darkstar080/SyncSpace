@@ -64,6 +64,8 @@ export default function Whiteboard({ shapes, awareness }) {
   const stageRef = useRef(null)
   const canvasWrapRef = useRef(null)
   const imageInputRef = useRef(null)
+  const whiteboardRef = useRef(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const shapeNodeRefs = useRef({}) // id -> Konva node, so the Transformer can attach
   const transformerRef = useRef(null)
   const [stageSize, setStageSize] = useState({ width: 640, height: 520 })
@@ -442,12 +444,38 @@ export default function Whiteboard({ shapes, awareness }) {
 
   const selectable = tool === 'select'
   const shapeTools = ['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'arrow']
+  useEffect(() => {
+  const onFullscreenChange = () => {
+    setIsFullscreen(document.fullscreenElement === whiteboardRef.current)
+  }
+
+  document.addEventListener('fullscreenchange', onFullscreenChange)
+
+  return () => {
+    document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }
+}, [])
+
+async function toggleFullscreen() {
+  if (!whiteboardRef.current) return
+
+  if (document.fullscreenElement === whiteboardRef.current) {
+    await document.exitFullscreen()
+  } else {
+    await whiteboardRef.current.requestFullscreen()
+  }
+}
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 min-h-0 border-r border-border">
+    
       <div className="flex items-center justify-between px-4 py-2.5 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0">
         <span className="font-medium text-text">Whiteboard</span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2"><div
+  ref={whiteboardRef}
+  className={`flex flex-col min-w-0 min-h-0 border-r border-border ${
+    isFullscreen ? 'h-screen w-screen bg-bg-deep' : 'flex-1'
+  }`}
+>
           <div className="flex gap-0.5 bg-bg-deep rounded-lg p-1 items-center">
             {TOOLS.map((t) => (
               <button
@@ -921,6 +949,17 @@ export default function Whiteboard({ shapes, awareness }) {
             }}
           />
         )}
+
+                <button
+          type="button"
+          onClick={toggleFullscreen}
+          title={isFullscreen ? 'Exit full screen' : 'Enter full screen'}
+          aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'}
+          className="absolute bottom-4 right-4 z-50 grid h-11 w-11 place-items-center rounded-full bg-black/80 text-xl text-white shadow-lg transition hover:bg-black"
+        >
+          ⛶
+        </button>
+        
       </div>
     </div>
   )
