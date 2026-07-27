@@ -8,7 +8,7 @@ import PenPanel from "./PenPanel"
 import MiniPenBar from "./MiniPenBar"
 import ShapePanel from "./ShapePanel"
 
-const TOOLS = ['select', 'pen', 'text']
+const TOOLS = ['select', 'pen', 'text', 'rect', 'circle', 'ellipse', 'triangle', 'daimond', 'star', 'line', 'arrow']
 const ImageShape = forwardRef(function ImageShape({ src, ...props }, ref) {
   const [image, setImage] = useState(null)
 
@@ -59,12 +59,10 @@ export default function Whiteboard({ shapes, awareness }) {
   const [tool, setTool] = useState('select')
   const [selectedId, setSelectedId] = useState(null)
   const [background, setBackground] = useState("#ffffff")
-  const [isFullscreen, setIsFullscreen] = useState(false)
   const drawingShapeId = useRef(null)
   const startPoint = useRef(null)
   const stageRef = useRef(null)
   const canvasWrapRef = useRef(null)
-  const whiteBoardRef = useRef(null)
   const imageInputRef = useRef(null)
   const shapeNodeRefs = useRef({}) // id -> Konva node, so the Transformer can attach
   const transformerRef = useRef(null)
@@ -443,169 +441,139 @@ export default function Whiteboard({ shapes, awareness }) {
 
   const selectable = tool === 'select'
   const shapeTools = ['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'arrow']
-  useEffect(() => {
-  const onFullscreenChange = () => {
-    setIsFullscreen(document.fullscreenElement === whiteboardRef.current)
-  }
-
-  document.addEventListener('fullscreenchange', onFullscreenChange)
-
-  return () => {
-    document.removeEventListener('fullscreenchange', onFullscreenChange)
-  }
-}, [])
-
-async function toggleFullscreen() 
-{
-  try{
-    if(!document.fullscreenElement){
-       await whiteboardRef.current.requestFullscreen()
-    } else {
-      await document.exitFullscreen()
-    }
-  } catch(error){
-    console.error("fullscreen error:",error)
-  }  
-}
-
+  
   return (
     
   <div
-  ref={whiteboardRef}
-  className={`flex flex-col flex-1 min-w-0 min-h-0 ${
-    isFullscreen ? "w-screen h-screen bg-bg-deep" : ""
-  }`}
-  style={{
-    overflow:"hidden",
-  }}
+className="flex flex-col flex-1 min-w-0 min-h-0"
+  style={{ overflow:"hidden" }}
 >
-      <div className="flex items-center justify-between px-4 py-2.5 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0"
-      style={{
-        minHeight: "56px",
-      }}
-      >
-       
-        <span className="font-medium text-text">Whiteboard</span>
-
-        <div className="flex items-center gap-2">
-
-          <div className="flex gap-0.5 bg-bg-deep rounded-lg p-1 items-center">
-            {TOOLS.map((t) => (
-              <button
-                key={t}
-                className={`px-2.5 py-1 rounded-md text-xs capitalize cursor-pointer transition-colors ${
-                  tool === t
-                    ? 'bg-accent text-bg-deep font-semibold'
-                    : 'bg-transparent text-text-dim hover:text-text'
-                }`}
-                onClick={() => {
-                  setTool(t)
-
-                  if (t === 'pen') {
-                    setShowPenPanel(true)
-                    setShowTextPanel(false)
-                  } else if (t === 'text') {
-                    setShowPenPanel(false)
-                    setShowTextPanel(true)
-                  } else {
-                    setShowPenPanel(false)
-                    setShowTextPanel(false)
-                  }
-                  setShowMiniPenBar(false)
-                  setShowShapePanel(false)
-                }}
-              >
-                {t}
-              </button>
-            ))}
-            <button
-              className={`px-2.5 py-1 rounded-md text-xs capitalize cursor-pointer transition-colors ${
-                shapeTools.includes(tool)
-                  ? 'bg-accent text-bg-deep font-semibold'
-                  : 'bg-transparent text-text-dim hover:text-text'
-              }`}
-              onClick={() => {
-                setShowShapePanel(!showShapePanel)
-                setShowPenPanel(false)
-                setShowMiniPenBar(false)
-                if (!shapeTools.includes(tool)) {
-                  setTool('rect')
-                }
-              }}
-            >
-              Shapes
-            </button>
-          </div>
-                    <input
-            ref={imageInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleImageInsert}
-          />
-
-          <button
-            className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
-            onClick={() => imageInputRef.current?.click()}
-          >
-            insert image
-          </button>
-
-          <select
-            value={background}
-            onChange={(e) => setBackground(e.target.value)}
-            className="px-2 py-1 rounded-md text-xs border border-border bg-white text-black"
-          >
-            <option value="#ffffff">White</option>
-            <option value="#000000">Black</option>
-            <option value="#008000">Green</option>
-          </select>
-
-          <div className="w-px h-5 bg-border" />
-          <button
-            className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
-            onClick={() => undoManager.undo()}
-            title="Ctrl+Z"
-          >
-            undo
-          </button>
-          <button
-            className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
-            onClick={() => undoManager.redo()}
-            title="Ctrl+Shift+Z"
-          >
-            redo
-          </button>
-          {selectedId && (
-            <button
-              className="px-2.5 py-1 rounded-md text-xs bg-transparent border border-accent-2 text-accent-2 hover:bg-accent-2 hover:text-bg-deep"
-              onClick={() => deleteShape(selectedId)}
-            >
-              delete
-            </button>
-          )}
-        </div>
-      </div>
-      <div ref={canvasWrapRef} className="flex-1 min-h-0 ralative overflow-hidden"
-      style={{ 
-        background
-      }}
-      >
-
-        <Stage
-  ref={stageRef}
-  width={stageSize.width}
-  height={stageSize.height}
-  onMouseDown={handleStageMouseDown}
-  onMouseMove={handleStageMouseMove}
-  onMouseUp={handleStageMouseUp}
-  style={{
-    background,
-    width: "100%",
-    height: "100%",
-    cursor: tool === "pen" && penType === "laser" ? "pointer" : "default",
-  }}
+      <div
+  className="flex items-center justify-between px-4 py-2.5 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0"
+  style={{ minHeight: "56px" }}
 >
+  <span className="font-medium text-text">
+    Whiteboard
+  </span>
+
+  <div className="flex items-center gap-2">
+
+    {/* Paste ALL of your existing toolbar buttons here */}
+    {/* Start from */}
+    <div className="flex gap-0.5 bg-bg-deep rounded-lg p-1 items-center">
+      {TOOLS.map((t) => (
+  <button
+    key={t}
+    onClick={() => {
+      setTool(t)
+
+      if (t === "pen") {
+        setShowPenPanel(true)
+        setShowMiniPenBar(false)
+        setShowShapePanel(false)
+        setShowTextPanel(false)
+      } else if (t === "text") {
+        setShowTextPanel(true)
+        setShowPenPanel(false)
+        setShowMiniPenBar(false)
+        setShowShapePanel(false)
+      } else if (
+        ["rect", "circle", "ellipse", "triangle", "diamond", "star", "line", "arrow"].includes(t)
+      ) {
+        setShowShapePanel(true)
+        setShowPenPanel(false)
+        setShowMiniPenBar(false)
+        setShowTextPanel(false)
+      } else {
+        setShowPenPanel(false)
+        setShowMiniPenBar(false)
+        setShowShapePanel(false)
+        setShowTextPanel(false)
+      }
+    }}
+    className={`px-3 py-1 rounded-md text-xs ${
+      tool === t
+        ? "bg-blue-500 text-white"
+        : "bg-transparent text-text-dim hover:bg-gray-200"
+    }`}
+  >
+    {t.charAt(0).toUpperCase() + t.slice(1)}
+  </button>
+))}
+
+    </div>
+
+    <input
+      ref={imageInputRef}
+      type="file"
+      accept="image/*"
+      className="hidden"
+      onChange={handleImageInsert}
+    />
+
+    <button
+      className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
+      onClick={() => imageInputRef.current?.click()}
+    >
+      Insert Image
+    </button>
+
+    <select
+      value={background}
+      onChange={(e) => setBackground(e.target.value)}
+      className="px-2 py-1 rounded-md text-xs border border-border bg-white text-black"
+    >
+      <option value="#ffffff">White</option>
+      <option value="#000000">Black</option>
+      <option value="#008000">Green</option>
+    </select>
+
+    <div className="w-px h-5 bg-border" />
+
+    <button
+      className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
+      onClick={() => undoManager.undo()}
+    >
+      Undo
+    </button>
+
+    <button
+      className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
+      onClick={() => undoManager.redo()}
+    >
+      Redo
+    </button>
+
+    {selectedId && (
+      <button
+        className="px-2.5 py-1 rounded-md text-xs bg-transparent border border-accent-2 text-accent-2 hover:bg-accent-2 hover:text-bg-deep"
+        onClick={() => deleteShape(selectedId)}
+      >
+        Delete
+      </button>
+    )}
+  </div>
+</div>
+
+<div
+  ref={canvasWrapRef}
+  className="flex-1 min-h-0 relative overflow-hidden"
+  style={{ background }}
+>
+  <Stage
+    ref={stageRef}
+    width={stageSize.width}
+    height={stageSize.height}
+    onMouseDown={handleStageMouseDown}
+    onMouseMove={handleStageMouseMove}
+    onMouseUp={handleStageMouseUp}
+    style={{
+      background,
+      width: "100%",
+      height: "100%",
+      cursor: tool === "pen" && penType === "laser" ? "pointer" : "default",
+    }}
+  >
 
           <Layer>
             {Array.from(shapes).map((map) => {
@@ -969,16 +937,6 @@ async function toggleFullscreen()
             }}
           />
         )}
-
-             <button
-  type="button"
-  onClick={toggleFullscreen}
-  title={isFullscreen ? "Exit Full Screen" : "Enter Full Screen"}
-  aria-label={isFullscreen ? "Exit Full Screen" : "Enter Full Screen"}
-  className="absolute bottom-5 right-5 z-50 flex items-center justify-center h-12 w-12 rounded-full bg-black/80 text-white text-2xl shadow-lg hover:bg-black transition-all"
->
-  {isFullscreen ? "✕" : "⛶"}
-</button> 
         
       </div>
     </div>
