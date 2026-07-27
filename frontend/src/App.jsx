@@ -6,6 +6,9 @@ import CodeEditor from './components/CodeEditor'
 import ConnectionBanner from './components/ConnectionBanner'
 import { createRoomConnection, destroyRoomConnection, randomColor } from './lib/yjs'
 import { getToken, getUsername, clearSession } from './lib/api'
+import ChatButton from './components/Chat/ChatButton'
+import ChatWindow from './components/Chat/ChatWindow'
+
 
 export default function App() {
   const [username, setUsername] = useState(getUsername())
@@ -13,6 +16,8 @@ export default function App() {
   const [status, setStatus] = useState('disconnected')
   const [users, setUsers] = useState([])
   const connectionRef = useRef(null)
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   function handleJoin({ room, pin }) {
     const user = { name: username, color: randomColor() }
@@ -115,6 +120,24 @@ export default function App() {
         <Whiteboard shapes={connection.shapes} awareness={connection.awareness} />
         <CodeEditor codeText={connection.codeText} awareness={connection.awareness} />
       </main>
+
+      <ChatButton
+        onClick={() => {
+          console.log("clicked");
+          setIsChatOpen(true);
+        }}
+      />
+      <ChatWindow
+        chatMessages={connection.chatMessages}
+        awareness={connection.awareness}
+        isOpen={isChatOpen}
+        isMinimized={isMinimized}
+        onMinimize={() => setIsMinimized((prev) => !prev)}
+        onClose={() => {
+          setIsChatOpen(false);
+          setIsMinimized(false);
+        }}
+      />
     </div>
   )
 }

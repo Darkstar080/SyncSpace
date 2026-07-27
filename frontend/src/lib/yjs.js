@@ -68,6 +68,8 @@ export function createRoomConnection(roomName, user, authParams) {
     awareness: provider.awareness,
     shapes: doc.getArray('shapes'),
     codeText: doc.getText('code'),
+    // Chat
+    chatMessages: doc.getArray('chat'),
   }
 }
 
