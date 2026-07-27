@@ -6,7 +6,8 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "node --env-file-if-exists=.env src/server.js",
-    "test": "node --env-file-if-exists=.env test-sync.js"
+    "test": "node --env-file-if-exists=.env test-sync.js",
+    "test:reconnect": "node --env-file-if-exists=.env test-reconnect.js"
   },
   "keywords": [],
   "author": "",

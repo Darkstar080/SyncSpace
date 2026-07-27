@@ -23,9 +23,36 @@ async function waitForServerReady(port, timeoutMs = 10000) {
   throw new Error(`Server did not become ready within ${timeoutMs}ms`)
 }
 
+async function setupAuthAndRoom(port, roomId) {
+  const username = `synctest_${Date.now()}`
+  const password = 'testpass123'
+
+  const registerRes = await fetch(`http://localhost:${port}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+  const { token } = await registerRes.json()
+  if (!token) throw new Error('Failed to register test user - no token returned')
+
+  const roomRes = await fetch(`http://localhost:${port}/rooms`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ roomId }),
+  })
+  const { pin } = await roomRes.json()
+  if (!pin) throw new Error('Failed to create test room - no pin returned')
+
+  return { token, pin }
+}
+
 async function main() {
+  const JWT_SECRET = 'test-secret-for-sync-test-only'
   const server = spawn('node', ['src/server.js'], {
-    env: { ...process.env, PORT: String(PORT) },
+    env: { ...process.env, PORT: String(PORT), JWT_SECRET },
     stdio: 'pipe',
   })
   server.stdout.on('data', (d) => process.stdout.write(`[server] ${d}`))
@@ -38,6 +65,12 @@ async function main() {
   // below) rather than a clear connection failure.
   await waitForServerReady(PORT)
 
+  // The server now requires a valid token + PIN for every WebSocket
+  // connection (see server.js's upgrade handler) - without this, every
+  // connection attempt below would be rejected before any sync logic
+  // even runs.
+  const { token, pin } = await setupAuthAndRoom(PORT, ROOM)
+
   const docA = new Y.Doc()
   const docB = new Y.Doc()
 
@@ -45,13 +78,13 @@ async function main() {
     `ws://localhost:${PORT}`,
     ROOM,
     docA,
-    { WebSocketPolyfill: WebSocket, disableBc: true }
+    { WebSocketPolyfill: WebSocket, disableBc: true, params: { token, pin } }
   )
   const providerB = new WebsocketProvider(
     `ws://localhost:${PORT}`,
     ROOM,
     docB,
-    { WebSocketPolyfill: WebSocket, disableBc: true }
+    { WebSocketPolyfill: WebSocket, disableBc: true, params: { token, pin } }
   )
 
   // Wait for both to actually report a real WebSocket connection, not

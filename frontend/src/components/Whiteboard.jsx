@@ -7,8 +7,9 @@ import * as Y from 'yjs'
 import PenPanel from "./PenPanel"
 import MiniPenBar from "./MiniPenBar"
 import ShapePanel from "./ShapePanel"
+import MiniShapeBar from "./MiniShapeBar"
 
-const TOOLS = ['select', 'pen', 'text']
+const TOOLS = ['select', 'pen', 'eraser', 'delete', 'text']
 const ImageShape = forwardRef(function ImageShape({ src, ...props }, ref) {
   const [image, setImage] = useState(null)
 
@@ -75,6 +76,10 @@ export default function Whiteboard({ shapes, awareness }) {
   const [showTextPanel, setShowTextPanel] = useState(false)
   const [showMiniPenBar, setShowMiniPenBar] = useState(false)
   const [showShapePanel, setShowShapePanel] = useState(false)
+  const [showMiniShapeBar, setShowMiniShapeBar] = useState(false)
+  const [eraserSize, setEraserSize] = useState(25)
+  const [eraserPos, setEraserPos] = useState(null)
+  const isMouseDownRef = useRef(false)
   const [shapePanelPosition, setShapePanelPosition] = useState({
     x: 350,
     y: 70,
@@ -173,6 +178,19 @@ export default function Whiteboard({ shapes, awareness }) {
       const isTypingElsewhere = activeTag === 'TEXTAREA' || activeTag === 'INPUT'
       if (isTypingElsewhere) return
 
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === '+' || e.key === '=' || e.code === 'Equal' || e.code === 'NumpadAdd') {
+          e.preventDefault()
+          setEraserSize((prev) => Math.min(150, prev + 5))
+          return
+        }
+        if (e.key === '-' || e.key === '_' || e.code === 'Minus' || e.code === 'NumpadSubtract') {
+          e.preventDefault()
+          setEraserSize((prev) => Math.max(5, prev - 5))
+          return
+        }
+      }
+
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         e.preventDefault()
         deleteShape(selectedId)
@@ -260,22 +278,167 @@ export default function Whiteboard({ shapes, awareness }) {
   reader.readAsDataURL(file)
 }
 
+  function checkEraserCollision(node, pos, eraserRadius) {
+    if (!node) return false
+    try {
+      const box = node.getClientRect()
+      const cx = Math.max(box.x, Math.min(pos.x, box.x + box.width))
+      const cy = Math.max(box.y, Math.min(pos.y, box.y + box.height))
+      const dist = Math.hypot(pos.x - cx, pos.y - cy)
+      return dist <= eraserRadius
+    } catch (err) {
+      return false
+    }
+  }
+
+  function sliceLinePoints(points, eraserPos, eraserRadius) {
+    if (!points || points.length < 4) return []
+    const segments = []
+    let currentSeg = []
+
+    for (let i = 0; i < points.length; i += 2) {
+      const px = points[i]
+      const py = points[i + 1]
+      const dist = Math.hypot(px - eraserPos.x, py - eraserPos.y)
+
+      if (dist > eraserRadius) {
+        currentSeg.push(px, py)
+      } else {
+        if (currentSeg.length >= 4) {
+          segments.push(currentSeg)
+        }
+        currentSeg = []
+      }
+    }
+
+    if (currentSeg.length >= 4) {
+      segments.push(currentSeg)
+    }
+
+    return segments
+  }
+
+  function eraseShapesInRadius(pos) {
+    if (!pos) return
+    const toDelete = []
+    const toSplit = []
+
+    for (const [id, node] of Object.entries(shapeNodeRefs.current)) {
+      if (!node) continue
+      const map = getShapeMapById(id)
+      if (!map) continue
+
+      if (checkEraserCollision(node, pos, eraserSize)) {
+        if (map.get('type') === 'line') {
+          const pts = map.get('points') || []
+          const segs = sliceLinePoints(pts, pos, eraserSize)
+          toSplit.push({ id, segs, map })
+        } else if (map.get('type') !== 'eraser') {
+          toDelete.push(id)
+        }
+      }
+    }
+
+    toSplit.forEach(({ id, segs, map }) => {
+      const index = getShapeIndexById(id)
+      if (index !== -1) {
+        if (segs.length === 0) {
+          shapes.delete(index, 1)
+        } else {
+          map.set('points', segs[0])
+          for (let i = 1; i < segs.length; i++) {
+            const newId = `${awareness.clientID}-${Date.now()}-${i}`
+            const newMap = new Y.Map()
+            newMap.set('id', newId)
+            newMap.set('type', 'line')
+            newMap.set('points', segs[i])
+            newMap.set('color', map.get('color'))
+            newMap.set('strokeWidth', map.get('strokeWidth'))
+            newMap.set('opacity', map.get('opacity'))
+            newMap.set('penType', map.get('penType'))
+            shapes.insert(index + i, [newMap])
+          }
+        }
+      }
+    })
+
+    toDelete.forEach((id) => deleteShape(id))
+  }
+
+  function clearCanvas() {
+    if (shapes.length === 0) return
+    if (window.confirm('Clear all objects from the whiteboard?')) {
+      shapes.delete(0, shapes.length)
+      setSelectedId(null)
+    }
+  }
+
   function pointerPos() {
     const stage = stageRef.current
-    return stage.getPointerPosition()
+    return stage ? stage.getPointerPosition() : null
   }
 
   function handleStageMouseDown(e) {
+    isMouseDownRef.current = true
     if (showPenPanel) {
       setShowPenPanel(false)
       setShowMiniPenBar(true)
     }
+
+    const shapeToolsList = ['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'arrow']
+    if (showShapePanel && shapeToolsList.includes(tool)) {
+      setShowShapePanel(false)
+      setShowMiniShapeBar(true)
+    }
+
     // Clicked empty canvas background -> clear selection.
     if (e.target === stageRef.current) {
       setSelectedId(null)
     }
 
     if (tool === "select") return // drawing tools only, below
+    if (tool === "delete") {
+      const pos = pointerPos()
+      if (pos && stageRef.current) {
+        const intersectedNode = stageRef.current.getIntersection(pos)
+        if (intersectedNode) {
+          let targetNode = intersectedNode
+          while (targetNode && targetNode !== stageRef.current) {
+            const shapeId = Object.keys(shapeNodeRefs.current).find(
+              (k) => shapeNodeRefs.current[k] === targetNode
+            )
+            if (shapeId) {
+              deleteShape(shapeId)
+              break
+            }
+            targetNode = targetNode.getParent ? targetNode.getParent() : null
+          }
+        }
+      }
+      return
+    }
+    if (tool === "eraser") {
+      const pos = pointerPos()
+      if (pos) {
+        setEraserPos(pos)
+        if (e && e.evt && (e.evt.shiftKey || e.evt.altKey)) {
+          eraseShapesInRadius(pos)
+          return
+        }
+        const id = `${awareness.clientID}-${Date.now()}`
+        const map = new Y.Map()
+        map.set('id', id)
+        map.set('type', 'eraser')
+        map.set('points', [pos.x, pos.y, pos.x, pos.y])
+        map.set('strokeWidth', eraserSize * 2)
+        map.set('createdAt', Date.now())
+
+        shapes.push([map])
+        drawingShapeId.current = id
+        startPoint.current = pos
+      }
+      return
+    }
     if (textBox) return
 
     const pos = pointerPos()
@@ -319,12 +482,24 @@ export default function Whiteboard({ shapes, awareness }) {
     startPoint.current = pos
   }
 
-  function handleStageMouseMove() {
+  function handleStageMouseMove(e) {
     const pos = pointerPos()
     if (!pos) return
 
     // Broadcast cursor position to everyone else in the room.
     awareness.setLocalStateField('cursor', { x: pos.x, y: pos.y })
+
+    if (tool === 'eraser') {
+      setEraserPos(pos)
+      if (drawingShapeId.current) {
+        const map = getShapeMapById(drawingShapeId.current)
+        if (map && map.get('type') === 'eraser') {
+          const points = map.get('points')
+          map.set('points', [...points, pos.x, pos.y])
+        }
+      }
+      return
+    }
 
     if (!drawingShapeId.current) return
     const map = getShapeMapById(drawingShapeId.current)
@@ -347,6 +522,7 @@ export default function Whiteboard({ shapes, awareness }) {
   // "laser" line, remove it after a short delay — a temporary highlight
   // effect that disappears automatically.
   function handleStageMouseUp() {
+    isMouseDownRef.current = false
     const id = drawingShapeId.current
 
     if (id) {
@@ -441,140 +617,220 @@ export default function Whiteboard({ shapes, awareness }) {
 
   const selectable = tool === 'select'
   const shapeTools = ['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'arrow']
-  
-  return (
-    
-  <div
-className="flex flex-col flex-1 min-w-0 min-h-0"
-  style={{ overflow:"hidden" }}
->
-      <div
-  className="flex items-center justify-between px-4 py-2.5 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0"
-  style={{ minHeight: "56px" }}
->
-  <span className="font-medium text-text">
-    Whiteboard
-  </span>
-
-  <div className="flex items-center gap-2">
-
-    {/* Paste ALL of your existing toolbar buttons here */}
-    {/* Start from */}
-    <div className="flex gap-0.5 bg-bg-deep rounded-lg p-1 items-center">
-      {TOOLS.map((t) => (
-  <button
-    key={t}
-    onClick={() => {
-      setTool(t)
-
-      if (t === "pen") {
-        setShowPenPanel(true)
-        setShowMiniPenBar(false)
-        setShowShapePanel(false)
-        setShowTextPanel(false)
-      } else if (t === "text") {
-        setShowTextPanel(true)
-        setShowPenPanel(false)
-        setShowMiniPenBar(false)
-        setShowShapePanel(false)
-      } else if (
-        ["rect", "circle", "ellipse", "triangle", "diamond", "star", "line", "arrow"].includes(t)
-      ) {
-        setShowShapePanel(true)
-        setShowPenPanel(false)
-        setShowMiniPenBar(false)
-        setShowTextPanel(false)
-      } else {
-        setShowPenPanel(false)
-        setShowMiniPenBar(false)
-        setShowShapePanel(false)
-        setShowTextPanel(false)
+const selectedShapeBox = useMemo(() => {
+    if (!selectedId) return null
+    const node = shapeNodeRefs.current[selectedId]
+    if (!node) return null
+    try {
+      const box = node.getClientRect()
+      return {
+        x: box.x + box.width / 2,
+        y: Math.max(10, box.y - 45),
       }
-    }}
-    className={`px-3 py-1 rounded-md text-xs ${
-      tool === t
-        ? "bg-blue-500 text-white"
-        : "bg-transparent text-text-dim hover:bg-gray-200"
-    }`}
-  >
-    {t.charAt(0).toUpperCase() + t.slice(1)}
-  </button>
-))}
+    } catch (err) {
+      return null
+    }
+  }, [selectedId, shapes, forceRender])
 
-    </div>
+  return (
+    <div className="flex-1 flex flex-col min-w-0 min-h-0 border-r border-border">
+      {/* TOOLBAR */}
+      <div className="flex items-center justify-between px-3 py-2 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0 min-w-0">
+        <span className="font-medium text-text shrink-0 mr-2">Whiteboard</span>
+        
+        <div className="flex items-center gap-1.5 min-w-0 max-w-full overflow-x-auto">
+          
+          {/* MAIN TOOLS (Select, Pen, Eraser, Text, Delete) */}
+          <div className="flex gap-0.5 bg-bg-deep rounded-lg p-1 items-center shrink-0">
+            {TOOLS.map((t) => (
+              <button
+                key={t}
+                className={`px-2.5 py-1 rounded-md text-xs capitalize cursor-pointer transition-colors ${
+                  tool === t
+                    ? 'bg-accent text-bg-deep font-semibold'
+                    : 'bg-transparent text-text-dim hover:text-text'
+                }`}
+                onClick={() => {
+                  setTool(t)
 
-    <input
-      ref={imageInputRef}
-      type="file"
-      accept="image/*"
-      className="hidden"
-      onChange={handleImageInsert}
-    />
+                  if (t === 'pen') {
+                    setShowPenPanel(true)
+                    setShowTextPanel(false)
+                  } else if (t === 'text') {
+                    setShowPenPanel(false)
+                    setShowTextPanel(true)
+                  } else {
+                    setShowPenPanel(false)
+                    setShowTextPanel(false)
+                  }
+                  setShowMiniPenBar(false)
+                  setShowShapePanel(false)
+                  setShowMiniShapeBar(false)
+                }}
+              >
+                {t}
+              </button>
+            ))}
 
-    <button
-      className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
-      onClick={() => imageInputRef.current?.click()}
-    >
-      Insert Image
-    </button>
+            {/* SHAPES BUTTON */}
+            <button
+              className={`px-2.5 py-1 rounded-md text-xs capitalize cursor-pointer transition-colors ${
+                shapeTools.includes(tool)
+                  ? 'bg-accent text-bg-deep font-semibold'
+                  : 'bg-transparent text-text-dim hover:text-text'
+              }`}
+              onClick={() => {
+                if (showShapePanel || showMiniShapeBar) {
+                  setShowShapePanel(false)
+                  setShowMiniShapeBar(false)
+                } else {
+                  setShowShapePanel(true)
+                  setShowMiniShapeBar(false)
+                  setShowPenPanel(false)
+                  setShowMiniPenBar(false)
+                  setShowTextPanel(false)
+                  if (!shapeTools.includes(tool)) {
+                    setTool('rect')
+                  }
+                }
+              }}
+            >
+              Shapes
+            </button>
+          </div>
 
-    <select
-      value={background}
-      onChange={(e) => setBackground(e.target.value)}
-      className="px-2 py-1 rounded-md text-xs border border-border bg-white text-black"
-    >
-      <option value="#ffffff">White</option>
-      <option value="#000000">Black</option>
-      <option value="#008000">Green</option>
-    </select>
+          {/* IMAGE INSERTION (From feature/image-insertion) */}
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageInsert}
+          />
+          <button
+            className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
+            onClick={() => imageInputRef.current?.click()}
+            title="Upload and insert an image"
+          >
+            Insert Image
+          </button>
 
-    <div className="w-px h-5 bg-border" />
+          {/* ERASER CONTROLS (From dev) */}
+          {tool === 'eraser' && (
+            <div className="flex items-center gap-1 px-2 py-1 bg-bg-deep border border-border rounded-lg text-xs text-text-dim shrink-0">
+              <span className="font-semibold text-text">{eraserSize * 2}px</span>
+              <button
+                onClick={() => setEraserSize((prev) => Math.max(5, prev - 5))}
+                className="px-1.5 py-0.5 rounded bg-bg-panel border border-border hover:text-text font-bold cursor-pointer"
+                title="Decrease Size (Ctrl -)"
+              >
+                -
+              </button>
+              <button
+                onClick={() => setEraserSize((prev) => Math.min(150, prev + 5))}
+                className="px-1.5 py-0.5 rounded bg-bg-panel border border-border hover:text-text font-bold cursor-pointer"
+                title="Increase Size (Ctrl +)"
+              >
+                +
+              </button>
+            </div>
+          )}
 
-    <button
-      className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
-      onClick={() => undoManager.undo()}
-    >
-      Undo
-    </button>
+          {/* BACKGROUND SELECTOR */}
+          <select
+            value={background}
+            onChange={(e) => setBackground(e.target.value)}
+            className="px-2 py-1 rounded-md text-xs border border-border bg-white text-black shrink-0"
+          >
+            <option value="#ffffff">White</option>
+            <option value="#000000">Black</option>
+            <option value="#008000">Green</option>
+          </select>
 
-    <button
-      className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80"
-      onClick={() => undoManager.redo()}
-    >
-      Redo
-    </button>
+          <div className="w-px h-5 bg-border shrink-0" />
+          
+          {/* HISTORY CONTROLS */}
+          <button
+            className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
+            onClick={() => undoManager.undo()}
+            title="Ctrl+Z"
+          >
+            undo
+          </button>
+          <button
+            className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
+            onClick={() => undoManager.redo()}
+            title="Ctrl+Shift+Z"
+          >
+            redo
+          </button>
 
-    {selectedId && (
-      <button
-        className="px-2.5 py-1 rounded-md text-xs bg-transparent border border-accent-2 text-accent-2 hover:bg-accent-2 hover:text-bg-deep"
-        onClick={() => deleteShape(selectedId)}
-      >
-        Delete
-      </button>
-    )}
-  </div>
-</div>
+          {/* DELETE / CLEAR CANVAS CONTROLS */}
+          {selectedId && (
+            <button
+              className="px-2.5 py-1 rounded-md text-xs bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white shrink-0 font-medium transition-colors cursor-pointer"
+              onClick={() => deleteShape(selectedId)}
+              title="Delete Selected Shape"
+            >
+              delete
+            </button>
+          )}
+          <button
+            className="px-2.5 py-1 rounded-md text-xs bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white shrink-0 font-medium transition-colors cursor-pointer"
+            onClick={clearCanvas}
+            title="Clear all shapes from whiteboard"
+          >
+            Clear All
+          </button>
+        </div>
+      </div>
 
-<div
-  ref={canvasWrapRef}
-  className="flex-1 min-h-0 relative overflow-hidden"
-  style={{ background }}
->
-  <Stage
-    ref={stageRef}
-    width={stageSize.width}
-    height={stageSize.height}
-    onMouseDown={handleStageMouseDown}
-    onMouseMove={handleStageMouseMove}
-    onMouseUp={handleStageMouseUp}
-    style={{
-      background,
-      width: "100%",
-      height: "100%",
-      cursor: tool === "pen" && penType === "laser" ? "pointer" : "default",
-    }}
-  >
+      {/* CANVAS AREA */}
+      <div ref={canvasWrapRef} className="flex-1 min-h-0 relative" style={{ background }}>
+        
+        {/* FLOATING DELETE MENU (From dev) */}
+        {selectedId && selectedShapeBox && (
+          <div
+            className="absolute z-40 flex items-center gap-1 px-2 py-1 bg-bg-panel border border-border rounded-lg shadow-xl -translate-x-1/2 transition-all pointer-events-auto"
+            style={{
+              left: selectedShapeBox.x,
+              top: selectedShapeBox.y,
+            }}
+          >
+            <button
+              onClick={() => deleteShape(selectedId)}
+              className="flex items-center gap-1 px-2.5 py-1 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded text-xs font-semibold cursor-pointer transition-colors"
+              title="Delete shape (Delete/Backspace)"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Delete
+            </button>
+          </div>
+        )}
 
+        <Stage
+          ref={stageRef}
+          width={stageSize.width}
+          height={stageSize.height}
+          onMouseDown={handleStageMouseDown}
+          onMouseMove={handleStageMouseMove}
+          onMouseUp={handleStageMouseUp}
+          onMouseLeave={() => {
+            isMouseDownRef.current = false
+            setEraserPos(null)
+          }}
+          style={{
+            cursor:
+              tool === 'pen' && penType === 'laser'
+                ? 'pointer'
+                : tool === 'eraser'
+                ? 'none'
+                : 'default',
+          }}
+        >
+          {/* Make sure your Layer and shapes go here! */}
           <Layer>
             {Array.from(shapes).map((map) => {
               const type = map.get('type')
@@ -594,11 +850,46 @@ className="flex flex-col flex-1 min-w-0 min-h-0"
                 scaleX: map.get('scaleX') || 1,
                 scaleY: map.get('scaleY') || 1,
                 draggable: selectable,
-                onClick: () => selectable && setSelectedId(id),
-                onTap: () => selectable && setSelectedId(id),
+                onClick: (e) => {
+                  if (tool === 'delete') {
+                    deleteShape(id)
+                  } else if (tool === 'eraser') {
+                    if (e && e.evt && (e.evt.shiftKey || e.evt.altKey)) {
+                      deleteShape(id)
+                    }
+                  } else if (selectable) {
+                    setSelectedId(id)
+                  }
+                },
+                onTap: () => {
+                  if (tool === 'delete') {
+                    deleteShape(id)
+                  } else if (selectable) {
+                    setSelectedId(id)
+                  }
+                },
                 onDragEnd: (e) => handleShapeDragEnd(id, e),
                 onDblClick: (e) => handleShapeDblClick(id, e),
                 onDblTap: (e) => handleShapeDblClick(id, e),
+              }
+
+              if (type === 'eraser') {
+                return (
+                  <Line
+                    key={id}
+                    ref={(node) => {
+                      if (node) shapeNodeRefs.current[id] = node
+                      else delete shapeNodeRefs.current[id]
+                    }}
+                    points={map.get('points') || []}
+                    stroke="#000000"
+                    strokeWidth={map.get('strokeWidth') || 40}
+                    lineCap="round"
+                    lineJoin="round"
+                    globalCompositeOperation="destination-out"
+                    listening={false}
+                  />
+                )
               }
 
               if (type === 'line' || type === 'straight_line' || type === 'arrow') {
@@ -764,6 +1055,21 @@ className="flex flex-col flex-1 min-w-0 min-h-0"
               ) : null
             )}
           </Layer>
+
+          {/* Dedicated top layer for the eraser circle cursor overlay (always stays crisp & visible on top) */}
+          <Layer listening={false}>
+            {tool === 'eraser' && eraserPos && (
+              <Circle
+                x={eraserPos.x}
+                y={eraserPos.y}
+                radius={eraserSize}
+                stroke="#ef4444"
+                strokeWidth={2}
+                dash={[4, 4]}
+                fill="rgba(239, 68, 68, 0.15)"
+              />
+            )}
+          </Layer>
         </Stage>
 
         {showTextPanel && (
@@ -873,9 +1179,46 @@ className="flex flex-col flex-1 min-w-0 min-h-0"
           <ShapePanel
             tool={tool}
             setTool={(t) => setTool(t)}
+            penColor={penColor}
+            setPenColor={(color) => {
+              setPenColor(color)
+              if (selectedId) {
+                const map = getShapeMapById(selectedId)
+                if (map) map.set('color', color)
+              }
+            }}
             position={shapePanelPosition}
             setPosition={setShapePanelPosition}
-            onClose={() => setShowShapePanel(false)}
+            onMinimize={() => {
+              setShowShapePanel(false)
+              setShowMiniShapeBar(true)
+            }}
+            onClose={() => {
+              setShowShapePanel(false)
+              setShowMiniShapeBar(false)
+            }}
+          />
+        )}
+
+        {showMiniShapeBar && (
+          <MiniShapeBar
+            tool={tool}
+            setTool={(t) => setTool(t)}
+            penColor={penColor}
+            setPenColor={(color) => {
+              setPenColor(color)
+              if (selectedId) {
+                const map = getShapeMapById(selectedId)
+                if (map) map.set('color', color)
+              }
+            }}
+            position={shapePanelPosition}
+            setPosition={setShapePanelPosition}
+            onExpand={() => {
+              setShowMiniShapeBar(false)
+              setShowShapePanel(true)
+            }}
+            onClose={() => setShowMiniShapeBar(false)}
           />
         )}
 

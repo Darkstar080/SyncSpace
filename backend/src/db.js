@@ -16,6 +16,16 @@
  */
 
 import { MongoClient } from 'mongodb'
+import dns from 'node:dns'
+
+// Work around a known issue on Node.js v22+ / Windows: Node doesn't
+// always correctly use the OS's configured DNS resolver, which can
+// break the SRV DNS lookup that `mongodb+srv://` connection strings
+// depend on — producing a "querySrv ECONNREFUSED" error that has
+// nothing to do with your actual network, VPN, or firewall. Explicitly
+// pointing at public DNS resolvers sidesteps this. Harmless if you were
+// never affected by this issue in the first place.
+dns.setServers(['8.8.8.8', '1.1.1.1'])
 
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/syncspace'
 
@@ -27,7 +37,12 @@ let db = null
  * that crash startup, not swallow it (see the rationale above).
  */
 export async function connectDB() {
-  client = new MongoClient(MONGO_URI, { serverSelectionTimeoutMS: 5000 })
+  // 5s was too aggressive for some networks — a slower (but not
+  // actually blocked) path to Atlas's servers could time out here even
+  // though the connection would succeed given a bit more time. This
+  // doesn't fix an actual network block, just avoids a false failure
+  // on a marginal connection.
+  client = new MongoClient(MONGO_URI, { serverSelectionTimeoutMS: 20000 })
   await client.connect()
   db = client.db() // uses the database name embedded in MONGODB_URI
 
