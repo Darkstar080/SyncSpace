@@ -59,13 +59,13 @@ export default function Whiteboard({ shapes, awareness }) {
   const [tool, setTool] = useState('select')
   const [selectedId, setSelectedId] = useState(null)
   const [background, setBackground] = useState("#ffffff")
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const drawingShapeId = useRef(null)
   const startPoint = useRef(null)
   const stageRef = useRef(null)
   const canvasWrapRef = useRef(null)
+  const whiteBoardRef = useRef(null)
   const imageInputRef = useRef(null)
-  const whiteboardRef = useRef(null)
-  const [isFullscreen, setIsFullscreen] = useState(false)
   const shapeNodeRefs = useRef({}) // id -> Konva node, so the Transformer can attach
   const transformerRef = useRef(null)
   const [stageSize, setStageSize] = useState({ width: 640, height: 520 })
@@ -381,7 +381,6 @@ export default function Whiteboard({ shapes, awareness }) {
     if (tool !== 'select') return
     const map = getShapeMapById(id)
     if (!map) return
-
     const type = map.get('type')
     if (['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'text'].includes(type)) {
       const node = e.currentTarget
@@ -456,26 +455,40 @@ export default function Whiteboard({ shapes, awareness }) {
   }
 }, [])
 
-async function toggleFullscreen() {
-  if (!whiteboardRef.current) return
-
-  if (document.fullscreenElement === whiteboardRef.current) {
-    await document.exitFullscreen()
-  } else {
-    await whiteboardRef.current.requestFullscreen()
-  }
+async function toggleFullscreen() 
+{
+  try{
+    if(!document.fullscreenElement){
+       await whiteboardRef.current.requestFullscreen()
+    } else {
+      await document.exitFullscreen()
+    }
+  } catch(error){
+    console.error("fullscreen error:",error)
+  }  
 }
 
   return (
     
-      <div className="flex items-center justify-between px-4 py-2.5 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0">
-        <span className="font-medium text-text">Whiteboard</span>
-        <div className="flex items-center gap-2"><div
+  <div
   ref={whiteboardRef}
-  className={`flex flex-col min-w-0 min-h-0 border-r border-border ${
-    isFullscreen ? 'h-screen w-screen bg-bg-deep' : 'flex-1'
+  className={`flex flex-col flex-1 min-w-0 min-h-0 ${
+    isFullscreen ? "w-screen h-screen bg-bg-deep" : ""
   }`}
+  style={{
+    overflow:"hidden",
+  }}
 >
+      <div className="flex items-center justify-between px-4 py-2.5 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0"
+      style={{
+        minHeight: "56px",
+      }}
+      >
+       
+        <span className="font-medium text-text">Whiteboard</span>
+
+        <div className="flex items-center gap-2">
+
           <div className="flex gap-0.5 bg-bg-deep rounded-lg p-1 items-center">
             {TOOLS.map((t) => (
               <button
@@ -573,20 +586,27 @@ async function toggleFullscreen() {
           )}
         </div>
       </div>
-      <div ref={canvasWrapRef} className="flex-1 min-h-0 bg-bg-deep relative">
+      <div ref={canvasWrapRef} className="flex-1 min-h-0 ralative overflow-hidden"
+      style={{ 
+        background
+      }}
+      >
+
         <Stage
-          ref={stageRef}
-          width={stageSize.width}
-          height={stageSize.height}
-          onMouseDown={handleStageMouseDown}
-          onMouseMove={handleStageMouseMove}
-          onMouseUp={handleStageMouseUp}
-          className="bg-white"
-          style={{
-            background,
-            cursor: tool === 'pen' && penType === 'laser' ? 'pointer' : 'default',
-          }}
-        >
+  ref={stageRef}
+  width={stageSize.width}
+  height={stageSize.height}
+  onMouseDown={handleStageMouseDown}
+  onMouseMove={handleStageMouseMove}
+  onMouseUp={handleStageMouseUp}
+  style={{
+    background,
+    width: "100%",
+    height: "100%",
+    cursor: tool === "pen" && penType === "laser" ? "pointer" : "default",
+  }}
+>
+
           <Layer>
             {Array.from(shapes).map((map) => {
               const type = map.get('type')
@@ -950,15 +970,15 @@ async function toggleFullscreen() {
           />
         )}
 
-                <button
-          type="button"
-          onClick={toggleFullscreen}
-          title={isFullscreen ? 'Exit full screen' : 'Enter full screen'}
-          aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'}
-          className="absolute bottom-4 right-4 z-50 grid h-11 w-11 place-items-center rounded-full bg-black/80 text-xl text-white shadow-lg transition hover:bg-black"
-        >
-          ⛶
-        </button>
+             <button
+  type="button"
+  onClick={toggleFullscreen}
+  title={isFullscreen ? "Exit Full Screen" : "Enter Full Screen"}
+  aria-label={isFullscreen ? "Exit Full Screen" : "Enter Full Screen"}
+  className="absolute bottom-5 right-5 z-50 flex items-center justify-center h-12 w-12 rounded-full bg-black/80 text-white text-2xl shadow-lg hover:bg-black transition-all"
+>
+  {isFullscreen ? "✕" : "⛶"}
+</button> 
         
       </div>
     </div>
