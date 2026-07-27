@@ -7,7 +7,7 @@ export default function JoinScreen({ onJoin, onLogout, theme, onToggleTheme }) {
   const [roomsError, setRoomsError] = useState('')
 
   const [newRoomId, setNewRoomId] = useState('')
-  const [createdRoom, setCreatedRoom] = useState(null)
+  const [createdRoom, setCreatedRoom] = useState(null) // { roomId, pin } - shown once, freshest
   const [createError, setCreateError] = useState('')
 
   const [joinRoomId, setJoinRoomId] = useState('')
@@ -159,10 +159,10 @@ export default function JoinScreen({ onJoin, onLogout, theme, onToggleTheme }) {
           {createdRoom && (
             <div className="bg-bg-deep border border-border rounded-md p-3 text-sm">
               <p className="m-0 text-text-dim text-xs">Room created — share these with your team:</p>
-              <p className="m-0 mt-1">
+              <p className="m-0 mt-1 text-text">
                 Room ID: <span className="text-accent font-semibold">{createdRoom.roomId}</span>
               </p>
-              <p className="m-0">
+              <p className="m-0 text-text">
                 PIN: <span className="text-accent font-semibold">{createdRoom.pin}</span>
               </p>
             </div>
@@ -183,7 +183,7 @@ export default function JoinScreen({ onJoin, onLogout, theme, onToggleTheme }) {
                 key={r.roomId}
                 className="flex items-center justify-between bg-bg-deep border border-border rounded-md px-3 py-2 text-sm"
               >
-                <span>{r.roomId}</span>
+                <span className="text-text">{r.roomId}</span>
                 <div className="flex items-center gap-3">
                   <span className="text-text-dim text-xs">PIN: {r.pin}</span>
                   <button

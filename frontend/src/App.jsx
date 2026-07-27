@@ -94,7 +94,7 @@ export default function App() {
     <div className="h-screen flex flex-col">
       <header className="h-13 flex-shrink-0 flex items-center justify-between px-5 bg-bg-panel border-b border-border">
         <div className="flex items-center gap-3">
-          <span className="font-bold tracking-tight">SyncSpace</span>
+          <span className="font-bold tracking-tight text-text">SyncSpace</span>
           <span className="text-xs text-text-dim bg-bg-deep px-2.5 py-1 rounded-full border border-border">
             Room: {connection.roomName}
           </span>
