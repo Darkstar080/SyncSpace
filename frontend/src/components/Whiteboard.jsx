@@ -8,7 +8,7 @@ import PenPanel from "./PenPanel"
 import MiniPenBar from "./MiniPenBar"
 import ShapePanel from "./ShapePanel"
 
-const TOOLS = ['select', 'pen', 'text', 'rect', 'circle', 'ellipse', 'triangle', 'daimond', 'star', 'line', 'arrow']
+const TOOLS = ['select', 'pen', 'text']
 const ImageShape = forwardRef(function ImageShape({ src, ...props }, ref) {
   const [image, setImage] = useState(null)
 
