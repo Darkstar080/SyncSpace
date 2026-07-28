@@ -268,7 +268,12 @@ function saveWhiteboard() {
   link.href = dataURL
   link.click()
 }
-  function handleImageInsert(event) {
+  function handleImageInsert(event) 
+  {
+    if (whiteboardRef.current && !document.fullscreenElement) {
+  whiteboardRef.current.requestFullscreen()
+}
+
   const file = event.target.files?.[0]
   event.target.value = ''
 
