@@ -7,6 +7,9 @@ import ConnectionBanner from './components/ConnectionBanner'
 import { createRoomConnection, destroyRoomConnection, randomColor } from './lib/yjs'
 import { getToken, getUsername, clearSession } from './lib/api'
 import { getInitialTheme, applyToDocument, setExplicitTheme, watchSystemTheme, hasExplicitPreference } from './lib/theme'
+import ChatButton from './components/Chat/ChatButton'
+import ChatWindow from './components/Chat/ChatWindow'
+
 
 export default function App() {
   const [username, setUsername] = useState(getUsername())
@@ -15,6 +18,8 @@ export default function App() {
   const [users, setUsers] = useState([])
   const [theme, setTheme] = useState(() => getInitialTheme())
   const connectionRef = useRef(null)
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   useEffect(() => {
     applyToDocument(theme)
@@ -147,6 +152,24 @@ export default function App() {
         <Whiteboard shapes={connection.shapes} awareness={connection.awareness} />
         <CodeEditor codeText={connection.codeText} awareness={connection.awareness} theme={theme} />
       </main>
+
+      <ChatButton
+        onClick={() => {
+          console.log("clicked");
+          setIsChatOpen(true);
+        }}
+      />
+      <ChatWindow
+        chatMessages={connection.chatMessages}
+        awareness={connection.awareness}
+        isOpen={isChatOpen}
+        isMinimized={isMinimized}
+        onMinimize={() => setIsMinimized((prev) => !prev)}
+        onClose={() => {
+          setIsChatOpen(false);
+          setIsMinimized(false);
+        }}
+      />
     </div>
   )
 }

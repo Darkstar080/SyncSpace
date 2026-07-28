@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { Stage, Layer, Line, Rect, Text, Circle, Label, Tag, Transformer, Ellipse, Arrow, Star, Group } from 'react-konva'
+import { forwardRef, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import {
+  Stage, Layer, Line, Rect, Text, Circle, Label, Tag, Transformer,
+  Ellipse, Arrow, Star, Group, Image as KonvaImage
+} from 'react-konva'
 import * as Y from 'yjs'
 import PenPanel from "./PenPanel"
 import MiniPenBar from "./MiniPenBar"
@@ -7,6 +10,25 @@ import ShapePanel from "./ShapePanel"
 import MiniShapeBar from "./MiniShapeBar"
 
 const TOOLS = ['select', 'pen', 'eraser', 'delete', 'text']
+const ImageShape = forwardRef(function ImageShape({ src, ...props }, ref) {
+  const [image, setImage] = useState(null)
+
+  useEffect(() => {
+    const element = new window.Image()
+
+    element.onload = () => {
+      setImage(element)
+    }
+
+    element.src = src
+
+    return () => {
+      element.onload = null
+    }
+  }, [src])
+
+  return <KonvaImage ref={ref} {...props} image={image} />
+})
 
 /**
  * IMPORTANT PATTERN — read this before touching this file:
@@ -42,6 +64,7 @@ export default function Whiteboard({ shapes, awareness }) {
   const startPoint = useRef(null)
   const stageRef = useRef(null)
   const canvasWrapRef = useRef(null)
+  const imageInputRef = useRef(null)
   const shapeNodeRefs = useRef({}) // id -> Konva node, so the Transformer can attach
   const transformerRef = useRef(null)
   const [stageSize, setStageSize] = useState({ width: 640, height: 520 })
@@ -135,7 +158,7 @@ export default function Whiteboard({ shapes, awareness }) {
     const map = selectedId ? getShapeMapById(selectedId) : null
     const resizableTypes = [
       'rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star',
-      'line', 'straight_line', 'arrow', 'text',
+      'line', 'straight_line', 'arrow', 'text','image',
     ]
     const node = selectedId && resizableTypes.includes(map?.get('type'))
       ? shapeNodeRefs.current[selectedId]
@@ -212,6 +235,48 @@ export default function Whiteboard({ shapes, awareness }) {
     if (map.get("type") !== "text") return
     map.set(property, value)
   }
+  function handleImageInsert(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+
+  if (!file || !file.type.startsWith('image/')) return
+
+  const reader = new FileReader()
+
+  reader.onload = () => {
+    const src = reader.result
+    const preview = new window.Image()
+
+    preview.onload = () => {
+      const maxSize = 360
+      const scale = Math.min(
+        maxSize / preview.naturalWidth,
+        maxSize / preview.naturalHeight,
+        1
+      )
+
+      const width = preview.naturalWidth * scale
+      const height = preview.naturalHeight * scale
+      const id = `${awareness.clientID}-${Date.now()}`
+      const map = new Y.Map()
+
+      map.set('id', id)
+      map.set('type', 'image')
+      map.set('src', src)
+      map.set('x', Math.max(20, (stageSize.width - width) / 2))
+      map.set('y', Math.max(20, (stageSize.height - height) / 2))
+      map.set('width', width)
+      map.set('height', height)
+
+      shapes.push([map])
+      setSelectedId(id)
+    }
+
+    preview.src = src
+  }
+
+  reader.readAsDataURL(file)
+}
 
   function checkEraserCollision(node, pos, eraserRadius) {
     if (!node) return false
@@ -490,7 +555,6 @@ export default function Whiteboard({ shapes, awareness }) {
     if (tool !== 'select') return
     const map = getShapeMapById(id)
     if (!map) return
-
     const type = map.get('type')
     if (['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'text'].includes(type)) {
       const node = e.currentTarget
@@ -553,8 +617,7 @@ export default function Whiteboard({ shapes, awareness }) {
 
   const selectable = tool === 'select'
   const shapeTools = ['rect', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'line', 'arrow']
-
-  const selectedShapeBox = useMemo(() => {
+const selectedShapeBox = useMemo(() => {
     if (!selectedId) return null
     const node = shapeNodeRefs.current[selectedId]
     if (!node) return null
@@ -571,9 +634,13 @@ export default function Whiteboard({ shapes, awareness }) {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0 border-r border-border">
+      {/* TOOLBAR */}
       <div className="flex items-center justify-between px-3 py-2 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0 min-w-0">
         <span className="font-medium text-text shrink-0 mr-2">Whiteboard</span>
+        
         <div className="flex items-center gap-1.5 min-w-0 max-w-full overflow-x-auto">
+          
+          {/* MAIN TOOLS (Select, Pen, Eraser, Text, Delete) */}
           <div className="flex gap-0.5 bg-bg-deep rounded-lg p-1 items-center shrink-0">
             {TOOLS.map((t) => (
               <button
@@ -604,6 +671,8 @@ export default function Whiteboard({ shapes, awareness }) {
                 {t}
               </button>
             ))}
+
+            {/* SHAPES BUTTON */}
             <button
               className={`px-2.5 py-1 rounded-md text-xs capitalize cursor-pointer transition-colors ${
                 shapeTools.includes(tool)
@@ -630,6 +699,23 @@ export default function Whiteboard({ shapes, awareness }) {
             </button>
           </div>
 
+          {/* IMAGE INSERTION (From feature/image-insertion) */}
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageInsert}
+          />
+          <button
+            className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
+            onClick={() => imageInputRef.current?.click()}
+            title="Upload and insert an image"
+          >
+            Insert Image
+          </button>
+
+          {/* ERASER CONTROLS (From dev) */}
           {tool === 'eraser' && (
             <div className="flex items-center gap-1 px-2 py-1 bg-bg-deep border border-border rounded-lg text-xs text-text-dim shrink-0">
               <span className="font-semibold text-text">{eraserSize * 2}px</span>
@@ -650,6 +736,7 @@ export default function Whiteboard({ shapes, awareness }) {
             </div>
           )}
 
+          {/* BACKGROUND SELECTOR */}
           <select
             value={background}
             onChange={(e) => setBackground(e.target.value)}
@@ -661,6 +748,8 @@ export default function Whiteboard({ shapes, awareness }) {
           </select>
 
           <div className="w-px h-5 bg-border shrink-0" />
+          
+          {/* HISTORY CONTROLS */}
           <button
             className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
             onClick={() => undoManager.undo()}
@@ -675,6 +764,8 @@ export default function Whiteboard({ shapes, awareness }) {
           >
             redo
           </button>
+
+          {/* DELETE / CLEAR CANVAS CONTROLS */}
           {selectedId && (
             <button
               className="px-2.5 py-1 rounded-md text-xs bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white shrink-0 font-medium transition-colors cursor-pointer"
@@ -693,7 +784,11 @@ export default function Whiteboard({ shapes, awareness }) {
           </button>
         </div>
       </div>
+
+      {/* CANVAS AREA */}
       <div ref={canvasWrapRef} className="flex-1 min-h-0 relative" style={{ background }}>
+        
+        {/* FLOATING DELETE MENU (From dev) */}
         {selectedId && selectedShapeBox && (
           <div
             className="absolute z-40 flex items-center gap-1 px-2 py-1 bg-bg-panel border border-border rounded-lg shadow-xl -translate-x-1/2 transition-all pointer-events-auto"
@@ -714,6 +809,7 @@ export default function Whiteboard({ shapes, awareness }) {
             </button>
           </div>
         )}
+
         <Stage
           ref={stageRef}
           width={stageSize.width}
@@ -734,6 +830,7 @@ export default function Whiteboard({ shapes, awareness }) {
                 : 'default',
           }}
         >
+          {/* Make sure your Layer and shapes go here! */}
           <Layer>
             {Array.from(shapes).map((map) => {
               const type = map.get('type')
@@ -906,6 +1003,18 @@ export default function Whiteboard({ shapes, awareness }) {
                   />
                 )
               }
+              if (type === 'image') {
+  return (
+    <ImageShape
+      {...commonProps}
+      src={map.get('src')}
+      width={map.get('width') || 0}
+      height={map.get('height') || 0}
+      onTransformEnd={(e) => handleRectTransformEnd(id, e)}
+    />
+  )
+}
+
               return null
             })}
 
@@ -1171,6 +1280,7 @@ export default function Whiteboard({ shapes, awareness }) {
             }}
           />
         )}
+        
       </div>
     </div>
   )
