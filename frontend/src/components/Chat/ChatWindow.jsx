@@ -12,9 +12,6 @@ const ChatWindow = ({
 }) => {
   if (!isOpen) return null;
 
-  // ------------------------
-  // Drag State
-  // ------------------------
   const dragRef = useRef(null);
 
   const [position, setPosition] = useState({
@@ -29,11 +26,6 @@ const ChatWindow = ({
     x: 0,
     y: 0,
   });
-
-  // ------------------------
-  // Messages
-  // ------------------------
-
 
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
@@ -58,9 +50,6 @@ const ChatWindow = ({
     });
   }, [messages]);
 
-  // ------------------------
-  // Drag Functions
-  // ------------------------
   const handleMouseDown = (e) => {
     setDragging(true);
 
@@ -97,9 +86,7 @@ const ChatWindow = ({
   setInput((prev) => prev + emojiData.emoji);
     setShowEmojiPicker(false);
   };
-  // ------------------------
-  // Send Message
-  // ------------------------
+
  const sendMessage = () => {
   if (!input.trim()) return;
 
@@ -108,7 +95,6 @@ const ChatWindow = ({
       name: "Anonymous",
     };
 
-    console.log("Before push:", chatMessages.toArray());
   chatMessages.push([
     {
       id: Date.now(),
@@ -123,7 +109,6 @@ const ChatWindow = ({
 
   setInput("");
 };
-console.log("After push:", chatMessages.toArray());
 
     return (
     <div
@@ -135,18 +120,17 @@ console.log("After push:", chatMessages.toArray());
       }}
     >
       <div
-        className={`overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl transition-all duration-300 ${
+        className={`overflow-hidden rounded-2xl border border-border bg-bg-panel shadow-2xl transition-all duration-300 ${
           isMinimized ? "h-16 w-[380px]" : "h-[550px] w-[380px]"
         }`}
       >
-        {/* ================= HEADER ================= */}
         <div
           onMouseDown={handleMouseDown}
-          className="flex cursor-move items-center justify-between bg-blue-600 px-5 py-4 text-white"
+          className="flex cursor-move items-center justify-between bg-accent px-5 py-4 text-bg-deep"
         >
           <div>
             <h2 className="text-lg font-semibold">Chat</h2>
-            <p className="text-xs text-blue-100">
+            <p className="text-xs opacity-70">
               Room Messages
             </p>
           </div>
@@ -154,14 +138,14 @@ console.log("After push:", chatMessages.toArray());
           <div className="flex items-center gap-2">
             <button
               onClick={onMinimize}
-              className="rounded-full p-1 transition hover:bg-blue-700"
+              className="rounded-full p-1 transition hover:brightness-90"
             >
               <Minus size={18} />
             </button>
 
             <button
               onClick={onClose}
-              className="rounded-full p-1 transition hover:bg-blue-700"
+              className="rounded-full p-1 transition hover:brightness-90"
             >
               <X size={20} />
             </button>
@@ -170,8 +154,7 @@ console.log("After push:", chatMessages.toArray());
 
         {!isMinimized && (
           <>
-            {/* ================= MESSAGES ================= */}
-            <div className="flex-1 space-y-4 overflow-y-auto bg-gray-50 p-4 h-[410px]">
+            <div className="flex-1 space-y-4 overflow-y-auto bg-bg p-4 h-[410px]">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -182,12 +165,12 @@ console.log("After push:", chatMessages.toArray());
                   <div
                     className={`max-w-[75%] rounded-2xl px-4 py-3 ${
                       msg.sender === awareness.getLocalState()?.user?.name
-                        ? "rounded-br-sm bg-blue-600 text-white"
-                        : "rounded-bl-sm bg-gray-200 text-gray-800"
+                        ? "rounded-br-sm bg-accent text-bg-deep"
+                        : "rounded-bl-sm bg-bg-deep text-text"
                     }`}
                   >
                     {msg.sender !== awareness.getLocalState()?.user?.name && (
-                      <p className="text-xs font-semibold text-blue-600">
+                      <p className="text-xs font-semibold text-accent">
                         {msg.sender}
                       </p>
                     )}
@@ -199,8 +182,8 @@ console.log("After push:", chatMessages.toArray());
                     <p
                       className={`mt-1 text-right text-[10px] ${
                         msg.sender === awareness.getLocalState()?.user?.name
-                          ? "text-blue-100"
-                          : "text-gray-500"
+                          ? "text-bg-deep opacity-70"
+                          : "text-text-dim"
                       }`}
                     >
                       {msg.time}
@@ -212,13 +195,12 @@ console.log("After push:", chatMessages.toArray());
               <div ref={messagesEndRef} />
             </div>
 
-            {/* ================= INPUT ================= */}
-            <div className="border-t bg-white p-3">
-              <div className="flex items-center gap-2 rounded-full border border-gray-300 bg-white px-3 py-2">
+            <div className="border-t border-border bg-bg-panel p-3">
+              <div className="flex items-center gap-2 rounded-full border border-border bg-bg-deep px-3 py-2">
                 <div className="relative">
                 <button
                   onClick={() => setShowEmojiPicker((prev) => !prev)}
-                  className="text-gray-500 transition hover:text-yellow-500"
+                  className="text-text-dim transition hover:text-accent"
                 >
                   <Smile size={22} />
                 </button>
@@ -244,12 +226,12 @@ console.log("After push:", chatMessages.toArray());
                     }
                   }}
                   placeholder="Send a message..."
-                  className="flex-1 bg-transparent text-sm outline-none"
+                  className="flex-1 bg-transparent text-sm outline-none text-text"
                 />
 
                 <button
                   onClick={sendMessage}
-                  className="rounded-full bg-blue-600 p-2 text-white transition hover:bg-blue-700"
+                  className="rounded-full bg-accent p-2 text-bg-deep transition hover:brightness-110"
                 >
                   <SendHorizontal size={18} />
                 </button>
