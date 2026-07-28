@@ -125,6 +125,23 @@ export default function Whiteboard({ shapes, awareness }) {
   }
 }, [])
 
+
+useEffect(() => {
+  const checkFullscreen = () => {
+    if (
+      sessionStorage.getItem("wasFullscreen") === "true" &&
+      !document.fullscreenElement
+    ) {
+      sessionStorage.removeItem("wasFullscreen")
+    }
+  }
+
+  window.addEventListener("focus", checkFullscreen)
+
+  return () => {
+    window.removeEventListener("focus", checkFullscreen)
+  }
+}, [])
   // One UndoManager per room, scoped to the shapes array only. (Code
   // editor undo is handled separately, by Monaco itself.)
   const undoManager = useMemo(() => new Y.UndoManager(shapes), [shapes])
@@ -756,8 +773,13 @@ const selectedShapeBox = useMemo(() => {
           />
           <button
             className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
-            onClick={() => imageInputRef.current?.click()}
-            title="Upload and insert an image"
+            onClick={() => {
+  if (document.fullscreenElement) {
+    sessionStorage.setItem("wasFullscreen", "true")
+  }
+
+  imageInputRef.current?.click()
+}}
           >
             Insert Image
           </button>
