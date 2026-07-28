@@ -9,6 +9,7 @@ import { getToken, getUsername, clearSession } from './lib/api'
 import { getInitialTheme, applyToDocument, setExplicitTheme, watchSystemTheme, hasExplicitPreference } from './lib/theme'
 import ChatButton from './components/Chat/ChatButton'
 import ChatWindow from './components/Chat/ChatWindow'
+import { AIButton, AIPanel } from "./components/AIAssistant";
 
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
   const connectionRef = useRef(null)
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isAIOpen, setIsAIOpen] = useState(false);
 
   useEffect(() => {
     applyToDocument(theme)
@@ -153,6 +155,16 @@ export default function App() {
         <CodeEditor codeText={connection.codeText} awareness={connection.awareness} theme={theme} />
       </main>
 
+      <AIButton
+          onClick={() => setIsAIOpen(true)}
+        />
+
+        <ChatButton
+          onClick={() => {
+            setIsChatOpen(true);
+          }}
+        />
+
       <ChatButton
         onClick={() => {
           console.log("clicked");
@@ -169,6 +181,10 @@ export default function App() {
           setIsChatOpen(false);
           setIsMinimized(false);
         }}
+      />
+      <AIPanel
+        isOpen={isAIOpen}
+        onClose={() => setIsAIOpen(false)}
       />
     </div>
   )
