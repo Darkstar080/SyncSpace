@@ -62,6 +62,7 @@ export default function Whiteboard({ shapes, awareness }) {
   const [background, setBackground] = useState("#ffffff")
   const drawingShapeId = useRef(null)
   const startPoint = useRef(null)
+  const whiteboardRef = useRef(null)
   const stageRef = useRef(null)
   const canvasWrapRef = useRef(null)
   const imageInputRef = useRef(null)
@@ -235,6 +236,25 @@ export default function Whiteboard({ shapes, awareness }) {
     if (map.get("type") !== "text") return
     map.set(property, value)
   }
+  function toggleFullScreen() {
+  if (!document.fullscreenElement) {
+    whiteboardRef.current?.requestFullscreen()
+  } else {
+    document.exitFullscreen()
+  }
+}
+function saveWhiteboard() {
+  if (!stageRef.current) return
+
+  const dataURL = stageRef.current.toDataURL({
+    pixelRatio: 2,
+  })
+
+  const link = document.createElement("a")
+  link.download = "whiteboard.png"
+  link.href = dataURL
+  link.click()
+}
   function handleImageInsert(event) {
   const file = event.target.files?.[0]
   event.target.value = ''
@@ -633,7 +653,10 @@ const selectedShapeBox = useMemo(() => {
   }, [selectedId, shapes, forceRender])
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 min-h-0 border-r border-border">
+    <div
+    ref={whiteboardRef}
+     className="flex-1 flex flex-col min-w-0 min-h-0 border-r border-border"
+     >
       {/* TOOLBAR */}
       <div className="flex items-center justify-between px-3 py-2 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0 min-w-0">
         <span className="font-medium text-text shrink-0 mr-2">Whiteboard</span>
@@ -782,6 +805,21 @@ const selectedShapeBox = useMemo(() => {
           >
             Clear All
           </button>
+          <div className="w-px h-5 bg-border shrink-0" />
+
+<button
+  onClick={toggleFullScreen}
+  className="px-2.5 py-1 rounded-md text-xs bg-transparent border border-border text-text-dim hover:bg-gray-100"
+>
+  ⛶ 
+</button>
+
+<button
+  onClick={saveWhiteboard}
+  className="px-2.5 py-1 rounded-md text-xs bg-transparent border border-border text-text-dim hover:bg-gray-100"
+>
+  💾
+</button>
         </div>
       </div>
 
