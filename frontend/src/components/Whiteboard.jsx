@@ -59,7 +59,8 @@ export default function Whiteboard({ shapes, awareness }) {
   const [, forceRender] = useReducer((x) => x + 1, 0)
   const [tool, setTool] = useState('select')
   const [selectedId, setSelectedId] = useState(null)
-  const [background, setBackground] = useState("#ffffff")
+  const [background, setBackground] = useState("#ffffff") 
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const drawingShapeId = useRef(null)
   const startPoint = useRef(null)
   const whiteboardRef = useRef(null)
@@ -111,6 +112,18 @@ export default function Whiteboard({ shapes, awareness }) {
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+  const handleFullscreenChange = () => {
+    setIsFullscreen(!!document.fullscreenElement)
+  }
+
+  document.addEventListener("fullscreenchange", handleFullscreenChange)
+
+  return () => {
+    document.removeEventListener("fullscreenchange", handleFullscreenChange)
+  }
+}, [])
 
   // One UndoManager per room, scoped to the shapes array only. (Code
   // editor undo is handled separately, by Monaco itself.)
@@ -654,9 +667,11 @@ const selectedShapeBox = useMemo(() => {
 
   return (
     <div
-    ref={whiteboardRef}
-     className="flex-1 flex flex-col min-w-0 min-h-0 border-r border-border"
-     >
+  ref={whiteboardRef}
+  className={`flex flex-col min-w-0 min-h-0 border-r border-border ${
+    isFullscreen ? "w-screen h-screen" : "flex-1"
+  }`}
+>
       {/* TOOLBAR */}
       <div className="flex items-center justify-between px-3 py-2 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0 min-w-0">
         <span className="font-medium text-text shrink-0 mr-2">Whiteboard</span>
