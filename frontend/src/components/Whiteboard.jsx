@@ -270,10 +270,7 @@ function saveWhiteboard() {
 }
   function handleImageInsert(event) 
   {
-    if (whiteboardRef.current && !document.fullscreenElement) {
-  whiteboardRef.current.requestFullscreen()
-}
-
+   const wasFullscreen = !!document.fullscreenElement
   const file = event.target.files?.[0]
   event.target.value = ''
 
@@ -314,6 +311,13 @@ function saveWhiteboard() {
   }
 
   reader.readAsDataURL(file)
+  if (wasFullscreen) {
+  setTimeout(() => {
+    if (!document.fullscreenElement) {
+      whiteboardRef.current?.requestFullscreen()
+    }
+  }, 500)
+}
 }
 
   function checkEraserCollision(node, pos, eraserRadius) {
