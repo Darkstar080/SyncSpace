@@ -356,7 +356,6 @@ const [, forceRender] = useReducer((x) => x + 1, 0);
 
     reader.readAsDataURL(file);
   }
-  }
 
   function checkEraserCollision(node, pos, eraserRadius) {
     if (!node) return false;
