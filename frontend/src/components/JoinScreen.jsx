@@ -97,7 +97,7 @@ export default function JoinScreen({ onJoin, onLogout, theme, onToggleTheme }) {
             </button>
             <button
               onClick={handleLogout}
-              className="text-xs text-text-dim underline cursor-pointer bg-transparent border-none"
+              className="px-2.5 py-1 rounded-md text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
             >
               Log out
             </button>

@@ -28,6 +28,113 @@ import MiniPenBar from "./MiniPenBar";
 import ShapePanel from "./ShapePanel";
 import MiniShapeBar from "./MiniShapeBar";
 
+const BACKGROUNDS = {
+  white: {
+    type: "solid",
+    color: "#ffffff",
+  },
+
+  black: {
+    type: "solid",
+    color: "#111111",
+  },
+
+  green: {
+    type: "solid",
+    color: "#008000",
+  },
+
+  "dot-grid": {
+    type: "pattern",
+    color: "#ffffff",
+    pattern: "dot-grid",
+  },
+
+  "square-grid": {
+    type: "pattern",
+    color: "#ffffff",
+    pattern: "square-grid",
+  },
+};
+
+function createPatternImage(type) {
+  const svg =
+    type === "dot-grid"
+      ? `
+        <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25">
+          <rect width="25" height="25" fill="#ffffff"/>
+          <circle cx="2" cy="2" r="1" fill="#c5c5c5"/>
+        </svg>
+      `
+      : `
+        <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25">
+          <rect width="25" height="25" fill="#ffffff"/>
+          <path
+            d="M 25 0 L 0 0 0 25"
+            fill="none"
+            stroke="#d8d8d8"
+            stroke-width="1"
+          />
+        </svg>
+      `;
+
+  const image = new window.Image();
+
+  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+  return image;
+}
+
+function WhiteboardBackground({ background, width, height }) {
+  const [patternImage, setPatternImage] = useState(null);
+
+  const backgroundConfig = BACKGROUNDS[background] || BACKGROUNDS.white;
+
+  useEffect(() => {
+    if (backgroundConfig.type !== "pattern") {
+      setPatternImage(null);
+      return;
+    }
+
+    const image = createPatternImage(backgroundConfig.pattern);
+
+    image.onload = () => {
+      setPatternImage(image);
+    };
+
+    return () => {
+      image.onload = null;
+    };
+  }, [background, backgroundConfig.type, backgroundConfig.pattern]);
+
+  // SOLID COLOR BACKGROUND
+  if (backgroundConfig.type === "solid") {
+    return (
+      <Rect
+        x={0}
+        y={0}
+        width={width}
+        height={height}
+        fill={backgroundConfig.color}
+        listening={false}
+      />
+    );
+  }
+
+  // TEXTURED BACKGROUND
+  return (
+    <Rect
+      x={0}
+      y={0}
+      width={width}
+      height={height}
+      fillPatternImage={patternImage}
+      fillPatternRepeat="repeat"
+      listening={false}
+    />
+  );
+}
+
 const TOOLS = ["select", "pen", "eraser", "delete", "text"];
 const ImageShape = forwardRef(function ImageShape({ src, ...props }, ref) {
   const [image, setImage] = useState(null);
@@ -78,7 +185,7 @@ export default function Whiteboard({ shapes, awareness }) {
   const [, forceRender] = useReducer((x) => x + 1, 0);
   const [tool, setTool] = useState("select");
   const [selectedId, setSelectedId] = useState(null);
-  const [background, setBackground] = useState("#ffffff");
+  const [background, setBackground] = useState("white");
   const drawingShapeId = useRef(null);
   const startPoint = useRef(null);
   const stageRef = useRef(null);
@@ -579,87 +686,84 @@ export default function Whiteboard({ shapes, awareness }) {
   // "laser" line, remove it after a short delay — a temporary highlight
   // effect that disappears automatically.
   function handleStageMouseUp() {
-  isMouseDownRef.current = false
+    isMouseDownRef.current = false;
 
-  const id = drawingShapeId.current
+    const id = drawingShapeId.current;
 
-  if (id) {
-    const shape = getShapeMapById(id)
+    if (id) {
+      const shape = getShapeMapById(id);
 
-    if (shape && shape.get("penType") === "laser") {
-      const node = shapeNodeRefs.current[id]
+      if (shape && shape.get("penType") === "laser") {
+        const node = shapeNodeRefs.current[id];
 
-      if (node) {
-        const originalPoints = [...(shape.get("points") || [])]
+        if (node) {
+          const originalPoints = [...(shape.get("points") || [])];
 
-        const startTime = performance.now()
-        const duration = 1500
+          const startTime = performance.now();
+          const duration = 1500;
 
-        const fadeAndRetract = (currentTime) => {
-          const elapsed = currentTime - startTime
-          const progress = Math.min(elapsed / duration, 1)
+          const fadeAndRetract = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
 
-          // Smooth easing
-          const easedProgress =
-            1 - Math.pow(1 - progress, 3)
+            // Smooth easing
+            const easedProgress = 1 - Math.pow(1 - progress, 3);
 
-          // -----------------------------
-          // 1. FADE OUT
-          // -----------------------------
-          node.opacity(1 - easedProgress)
+            // -----------------------------
+            // 1. FADE OUT
+            // -----------------------------
+            node.opacity(1 - easedProgress);
 
-          // -----------------------------
-          // 2. SNAKE TAIL RETRACTION
-          // -----------------------------
-          const totalPoints = originalPoints.length / 2
+            // -----------------------------
+            // 2. SNAKE TAIL RETRACTION
+            // -----------------------------
+            const totalPoints = originalPoints.length / 2;
 
-          // Keep at least 2 points so Line remains valid
-          const remainingPoints = Math.max(
-            2,
-            Math.floor(
-              totalPoints * (1 - easedProgress)
-            )
-          )
+            // Keep at least 2 points so Line remains valid
+            const remainingPoints = Math.max(
+              2,
+              Math.floor(totalPoints * (1 - easedProgress)),
+            );
 
-          const retractedPoints = originalPoints.slice(
-            0,
-            remainingPoints * 2
-          )
+            const retractedPoints = originalPoints.slice(
+              0,
+              remainingPoints * 2,
+            );
 
-          node.points(retractedPoints)
+            node.points(retractedPoints);
 
-          // Redraw immediately
-          node.getLayer()?.batchDraw()
+            // Redraw immediately
+            node.getLayer()?.batchDraw();
 
-          if (progress < 1) {
-            requestAnimationFrame(fadeAndRetract)
-          } else {
-            // Remove from Yjs only after animation
-            const index = getShapeIndexById(id)
+            if (progress < 1) {
+              requestAnimationFrame(fadeAndRetract);
+            } else {
+              // Remove from Yjs only after animation
+              const index = getShapeIndexById(id);
+
+              if (index !== -1) {
+                shapes.delete(index, 1);
+              }
+            }
+          };
+
+          requestAnimationFrame(fadeAndRetract);
+        } else {
+          // Fallback if Konva node isn't available
+          setTimeout(() => {
+            const index = getShapeIndexById(id);
 
             if (index !== -1) {
-              shapes.delete(index, 1)
+              shapes.delete(index, 1);
             }
-          }
+          }, 1000);
         }
-
-        requestAnimationFrame(fadeAndRetract)
-      } else {
-        // Fallback if Konva node isn't available
-        setTimeout(() => {
-          const index = getShapeIndexById(id)
-
-          if (index !== -1) {
-            shapes.delete(index, 1)
-          }
-        }, 1000)
       }
     }
-  }
 
-  drawingShapeId.current = null
-  startPoint.current = null
-}
+    drawingShapeId.current = null;
+    startPoint.current = null;
+  }
 
   // --- Move (drag) a shape: write the new position back into its Y.Map ---
   function handleShapeDragEnd(id, e) {
@@ -888,9 +992,16 @@ export default function Whiteboard({ shapes, awareness }) {
             onChange={(e) => setBackground(e.target.value)}
             className="px-2 py-1 rounded-md text-xs border border-border bg-white text-black shrink-0"
           >
-            <option value="#ffffff">White</option>
-            <option value="#000000">Black</option>
-            <option value="#008000">Green</option>
+            <optgroup label="Solid Colors">
+              <option value="white">White</option>
+              <option value="black">Black</option>
+              <option value="green">Green</option>
+            </optgroup>
+
+            <optgroup label="Patterns">
+              <option value="dot-grid">Dot Grid</option>
+              <option value="square-grid">Square Grid</option>
+            </optgroup>
           </select>
 
           <div className="w-px h-5 bg-border shrink-0" />
@@ -991,6 +1102,12 @@ export default function Whiteboard({ shapes, awareness }) {
         >
           {/* Make sure your Layer and shapes go here! */}
           <Layer>
+             {/* BACKGROUND — MUST BE FIRST */}
+    <WhiteboardBackground
+      background={background}
+      width={5000}
+      height={5000}
+    />
             {Array.from(shapes).map((map) => {
               const type = map.get("type");
               const id = map.get("id");
