@@ -75,10 +75,14 @@ const ImageShape = forwardRef(function ImageShape({ src, ...props }, ref) {
  * build by hand.
  */
 export default function Whiteboard({ shapes, awareness }) {
-  const [, forceRender] = useReducer((x) => x + 1, 0);
+const [, forceRender] = useReducer((x) => x + 1, 0);
   const [tool, setTool] = useState("select");
   const [selectedId, setSelectedId] = useState(null);
   const [background, setBackground] = useState("#ffffff");
+  
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const whiteboardRef = useRef(null);
+  
   const drawingShapeId = useRef(null);
   const startPoint = useRef(null);
   const stageRef = useRef(null);
@@ -129,6 +133,18 @@ export default function Whiteboard({ shapes, awareness }) {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+  const handleFullscreenChange = () => {
+    setIsFullscreen(!!document.fullscreenElement)
+  }
+
+  document.addEventListener("fullscreenchange", handleFullscreenChange)
+
+  return () => {
+    document.removeEventListener("fullscreenchange", handleFullscreenChange)
+  }
+}, [])
 
   // One UndoManager per room, scoped to the shapes array only. (Code
   // editor undo is handled separately, by Monaco itself.)
@@ -275,6 +291,29 @@ export default function Whiteboard({ shapes, awareness }) {
     if (map.get("type") !== "text") return;
     map.set(property, value);
   }
+
+  function toggleFullScreen() {
+    if (!document.fullscreenElement) {
+      whiteboardRef.current?.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  }
+
+  function saveWhiteboard() {
+    if (!stageRef.current) return;
+
+    const dataURL = stageRef.current.toDataURL({
+      pixelRatio: 2,
+    });
+
+    const link = document.createElement("a");
+    link.download = "whiteboard.png";
+    link.href = dataURL;
+    link.click();
+  }
+
+  // Merged properly formatted version from dev
   function handleImageInsert(event) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -316,6 +355,7 @@ export default function Whiteboard({ shapes, awareness }) {
     };
 
     reader.readAsDataURL(file);
+  }
   }
 
   function checkEraserCollision(node, pos, eraserRadius) {
@@ -778,7 +818,12 @@ export default function Whiteboard({ shapes, awareness }) {
   }, [selectedId, shapes, forceRender]);
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 min-h-0 border-r border-border">
+    <div
+  ref={whiteboardRef}
+  className={`flex flex-col min-w-0 min-h-0 border-r border-border ${
+    isFullscreen ? "w-screen h-screen" : "flex-1"
+  }`}
+>
       {/* TOOLBAR */}
       <div className="flex items-center justify-between px-3 py-2 bg-bg-panel border-b border-border text-sm text-text-dim flex-shrink-0 min-w-0">
         <span className="font-medium text-text shrink-0 mr-2">Whiteboard</span>
@@ -853,8 +898,9 @@ export default function Whiteboard({ shapes, awareness }) {
           />
           <button
             className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
-            onClick={() => imageInputRef.current?.click()}
-            title="Upload and insert an image"
+            onClick={() => {
+  imageInputRef.current?.click()
+}}
           >
             Insert Image
           </button>
@@ -928,6 +974,21 @@ export default function Whiteboard({ shapes, awareness }) {
           >
             Clear All
           </button>
+          <div className="w-px h-5 bg-border shrink-0" />
+
+<button
+  onClick={toggleFullScreen}
+  className="px-2.5 py-1 rounded-md text-xs bg-transparent border border-border text-text-dim hover:bg-gray-100"
+>
+  ⛶ 
+</button>
+
+<button
+  onClick={saveWhiteboard}
+  className="px-2.5 py-1 rounded-md text-xs bg-transparent border border-border text-text-dim hover:bg-gray-100"
+>
+  💾
+</button>
         </div>
       </div>
 
