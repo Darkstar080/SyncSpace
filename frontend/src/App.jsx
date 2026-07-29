@@ -151,7 +151,17 @@ export default function App() {
       />
 
       <main className="flex-1 flex min-h-0">
-        <Whiteboard shapes={connection.shapes} awareness={connection.awareness} />
+        <div className="relative flex-1 min-w-0">
+          <Whiteboard
+            shapes={connection.shapes}
+            awareness={connection.awareness}
+          />
+
+          <AIPanel
+            isOpen={isAIOpen}
+            onClose={() => setIsAIOpen(false)}
+          />
+        </div>
         <CodeEditor codeText={connection.codeText} awareness={connection.awareness} theme={theme} />
       </main>
 
@@ -165,12 +175,6 @@ export default function App() {
           }}
         />
 
-      <ChatButton
-        onClick={() => {
-          console.log("clicked");
-          setIsChatOpen(true);
-        }}
-      />
       <ChatWindow
         chatMessages={connection.chatMessages}
         awareness={connection.awareness}
@@ -181,10 +185,6 @@ export default function App() {
           setIsChatOpen(false);
           setIsMinimized(false);
         }}
-      />
-      <AIPanel
-        isOpen={isAIOpen}
-        onClose={() => setIsAIOpen(false)}
       />
     </div>
   )
