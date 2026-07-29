@@ -125,23 +125,6 @@ export default function Whiteboard({ shapes, awareness }) {
   }
 }, [])
 
-
-useEffect(() => {
-  const checkFullscreen = () => {
-    if (
-      sessionStorage.getItem("wasFullscreen") === "true" &&
-      !document.fullscreenElement
-    ) {
-      sessionStorage.removeItem("wasFullscreen")
-    }
-  }
-
-  window.addEventListener("focus", checkFullscreen)
-
-  return () => {
-    window.removeEventListener("focus", checkFullscreen)
-  }
-}, [])
   // One UndoManager per room, scoped to the shapes array only. (Code
   // editor undo is handled separately, by Monaco itself.)
   const undoManager = useMemo(() => new Y.UndoManager(shapes), [shapes])
@@ -287,7 +270,6 @@ function saveWhiteboard() {
 }
   function handleImageInsert(event) 
   {
-   const wasFullscreen = !!document.fullscreenElement
   const file = event.target.files?.[0]
   event.target.value = ''
 
@@ -328,13 +310,6 @@ function saveWhiteboard() {
   }
 
   reader.readAsDataURL(file)
-  if (wasFullscreen) {
-  setTimeout(() => {
-    if (!document.fullscreenElement) {
-      whiteboardRef.current?.requestFullscreen()
-    }
-  }, 500)
-}
 }
 
   function checkEraserCollision(node, pos, eraserRadius) {
@@ -774,10 +749,6 @@ const selectedShapeBox = useMemo(() => {
           <button
             className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
             onClick={() => {
-  if (document.fullscreenElement) {
-    sessionStorage.setItem("wasFullscreen", "true")
-  }
-
   imageInputRef.current?.click()
 }}
           >
