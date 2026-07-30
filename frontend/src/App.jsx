@@ -104,11 +104,11 @@ export default function App() {
             Room: {connection.roomName}
           </span>
           <button
-            onClick={handleLeaveRoom}
-            className="text-xs text-text-dim underline cursor-pointer bg-transparent border-none"
-          >
-            Leave room
-          </button>
+  onClick={handleLeaveRoom}
+  className="px-2.5 py-1 rounded-md text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
+>
+  Leave room
+</button>
         </div>
         <div className="flex items-center gap-2.5">
           <button
