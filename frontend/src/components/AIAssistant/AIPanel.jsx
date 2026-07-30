@@ -3,8 +3,11 @@ import { X, Sparkles } from "lucide-react";
 import { askAI } from "../../lib/ai";
 
 
-const AIPanel = ({ isOpen, onClose }) => {
-  const [prompt, setPrompt] = useState("");
+const AIPanel = ({ isOpen,
+  onClose,
+  aiPrompt,
+  setAiPrompt,}) => {
+ 
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
@@ -17,16 +20,17 @@ const AIPanel = ({ isOpen, onClose }) => {
 }, [messages, loading]);
 
   const handleSend = async () => {
-    if (!prompt.trim() || loading) return;
+  if (!aiPrompt.trim() || loading) return;
 
-    const userMessage = prompt;
+    console.log("AI Prompt:", aiPrompt);
+    const userMessage = aiPrompt;
 
     setMessages((prev) => [
       ...prev,
       { role: "user", text: userMessage },
     ]);
 
-    setPrompt("");
+   setAiPrompt("");
     setLoading(true);
 
     try {
@@ -123,8 +127,8 @@ const AIPanel = ({ isOpen, onClose }) => {
         <div className="flex gap-3">
           <input
             type="text"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Ask AI anything..."
             className="flex-1 rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"

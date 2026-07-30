@@ -7,10 +7,12 @@ import NewFileModal from "./NewFileModal";
 import { saveFile } from "./saveFile";
 
 
-export default function CodeEditor({ codeText, awareness, theme = 'dark' }) {
+export default function CodeEditor({ codeText, awareness, theme = 'dark', setSelectedCode, setShowSelectionAI,  setSelectionPosition,}) {
   const bindingRef = useRef(null)
+  const editorRef = useRef(null);
   const fileInputRef = useRef(null)
   const [language, setLanguage] = useState("python")
+
   const [isOutputOpen, setIsOutputOpen] = useState(false);
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [currentFile, setCurrentFile] = useState(null);
@@ -39,6 +41,33 @@ useEffect(() => {
 
 
   function handleMount(editor, monaco) {
+    editorRef.current = editor;
+  editor.onDidChangeCursorSelection(() => {
+      const selection = editor.getSelection();
+
+      const selectedText = editor
+        .getModel()
+        .getValueInRange(selection)
+        .trim();
+
+      setSelectedCode(selectedText);
+      setShowSelectionAI(selectedText.length > 0);
+
+      if (selectedText) {
+        const pos = editor.getScrolledVisiblePosition(
+          selection.getEndPosition()
+        );
+
+        if (pos) {
+          const rect = editor.getDomNode().getBoundingClientRect();
+
+          setSelectionPosition({
+            x: rect.left + pos.left + 10,
+            y: rect.top + pos.top - 35,
+          });
+        }
+      }
+    });
     const model = editor.getModel()
     
    
@@ -225,6 +254,8 @@ useEffect(() => {
           console.error(error);
         }
       }
+
+      
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       
