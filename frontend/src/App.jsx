@@ -4,6 +4,7 @@ import JoinScreen from './components/JoinScreen'
 import Whiteboard from './components/Whiteboard'
 import CodeEditor from './components/CodeEditor'
 import ConnectionBanner from './components/ConnectionBanner'
+import ReplayModal from './components/ReplayModal'
 import { createRoomConnection, destroyRoomConnection, randomColor } from './lib/yjs'
 import { getToken, getUsername, clearSession } from './lib/api'
 import { getInitialTheme, applyToDocument, setExplicitTheme, watchSystemTheme, hasExplicitPreference } from './lib/theme'
@@ -17,6 +18,8 @@ export default function App() {
   const [status, setStatus] = useState('disconnected')
   const [users, setUsers] = useState([])
   const [theme, setTheme] = useState(() => getInitialTheme())
+  const [currentPin, setCurrentPin] = useState(null)
+  const [showReplay, setShowReplay] = useState(false)
   const connectionRef = useRef(null)
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -49,6 +52,7 @@ export default function App() {
     conn.roomName = room
     connectionRef.current = conn
     setConnection(conn)
+    setCurrentPin(pin) // needed later so Replay can authenticate its own requests
 
     conn.provider.on('status', ({ status }) => setStatus(status))
 
@@ -118,6 +122,12 @@ export default function App() {
           >
             {theme === 'dark' ? '☀' : '☾'}
           </button>
+          <button
+            onClick={() => setShowReplay(true)}
+            className="text-xs text-text-dim border border-border rounded-full px-2.5 py-1 cursor-pointer hover:text-text"
+          >
+            History
+          </button>
           <span
             className={`w-2 h-2 rounded-full ${
               status === 'connected'
@@ -152,6 +162,14 @@ export default function App() {
         <Whiteboard shapes={connection.shapes} awareness={connection.awareness} />
         <CodeEditor codeText={connection.codeText} awareness={connection.awareness} theme={theme} />
       </main>
+
+      {showReplay && (
+        <ReplayModal
+          roomId={connection.roomName}
+          pin={currentPin}
+          onClose={() => setShowReplay(false)}
+        />
+      )}
 
       <ChatButton
         onClick={() => {
