@@ -87,3 +87,17 @@ export async function verifyRoomAccess(roomId, pin) {
     auth: true,
   })
 }
+
+export async function getRoomHistoryIndex(roomId, pin) {
+  return request(
+    `/rooms/${encodeURIComponent(roomId)}/history?pin=${encodeURIComponent(pin)}`,
+    { auth: true }
+  )
+}
+
+export async function getRoomHistorySnapshot(roomId, pin, timestamp) {
+  return request(
+    `/rooms/${encodeURIComponent(roomId)}/history/${timestamp}?pin=${encodeURIComponent(pin)}`,
+    { auth: true }
+  )
+}

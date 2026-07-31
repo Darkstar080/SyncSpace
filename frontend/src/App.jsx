@@ -4,6 +4,7 @@ import JoinScreen from './components/JoinScreen'
 import Whiteboard from './components/Whiteboard'
 import CodeEditor from './components/CodeEditor'
 import ConnectionBanner from './components/ConnectionBanner'
+import ReplayModal from './components/ReplayModal'
 import { createRoomConnection, destroyRoomConnection, randomColor } from './lib/yjs'
 import { getToken, getUsername, clearSession } from './lib/api'
 import { getInitialTheme, applyToDocument, setExplicitTheme, watchSystemTheme, hasExplicitPreference } from './lib/theme'
@@ -18,6 +19,8 @@ export default function App() {
   const [status, setStatus] = useState('disconnected')
   const [users, setUsers] = useState([])
   const [theme, setTheme] = useState(() => getInitialTheme())
+  const [currentPin, setCurrentPin] = useState(null)
+  const [showReplay, setShowReplay] = useState(false)
   const connectionRef = useRef(null)
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [showSelectionAI, setShowSelectionAI] = useState(false);
@@ -58,6 +61,7 @@ const [aiPrompt, setAiPrompt] = useState("");
     conn.roomName = room
     connectionRef.current = conn
     setConnection(conn)
+    setCurrentPin(pin) // needed later so Replay can authenticate its own requests
 
     conn.provider.on('status', ({ status }) => setStatus(status))
 
@@ -127,6 +131,12 @@ const [aiPrompt, setAiPrompt] = useState("");
           >
             {theme === 'dark' ? '☀' : '☾'}
           </button>
+          <button
+            onClick={() => setShowReplay(true)}
+            className="text-xs text-text-dim border border-border rounded-full px-2.5 py-1 cursor-pointer hover:text-text"
+          >
+            History
+          </button>
           <span
             className={`w-2 h-2 rounded-full ${
               status === 'connected'
@@ -181,34 +191,43 @@ const [aiPrompt, setAiPrompt] = useState("");
         />
       </main>
 
-
-
-            {showSelectionAI && (
-            <button
-              onClick={() => {
-                setAiPrompt(selectedCode);
-                setIsAIOpen(true);
-              }}
-              style={{
-                position: "fixed",
-                left: selectionPosition.x,
-                top: selectionPosition.y,
-              }}
-              className="z-50 px-2 py-1 rounded-md bg-violet-600 text-white text-xs shadow-lg hover:bg-violet-700"
-            >
-              ✨ Ask AI
-            </button>
-          )}
-      <AIButton
-          onClick={() => setIsAIOpen(true)}
+{/* REPLAY FEATURE */}
+      {showReplay && (
+        <ReplayModal
+          roomId={connection.roomName}
+          pin={currentPin}
+          onClose={() => setShowReplay(false)}
         />
+      )}
 
-        <ChatButton
+      {/* AI SELECTION BUTTON */}
+      {showSelectionAI && (
+        <button
           onClick={() => {
-            setIsChatOpen(true);
+            setAiPrompt(selectedCode);
+            setIsAIOpen(true);
           }}
-        />
+          style={{
+            position: "fixed",
+            left: selectionPosition.x,
+            top: selectionPosition.y,
+          }}
+          className="z-50 px-2 py-1 rounded-md bg-violet-600 text-white text-xs shadow-lg hover:bg-violet-700"
+        >
+          ✨ Ask AI
+        </button>
+      )}
 
+      {/* FLOATING ACTION BUTTONS */}
+      <AIButton
+        onClick={() => setIsAIOpen(true)}
+      />
+
+      <ChatButton
+        onClick={() => {
+          setIsChatOpen(true);
+        }}
+      />
       <ChatWindow
         chatMessages={connection.chatMessages}
         awareness={connection.awareness}

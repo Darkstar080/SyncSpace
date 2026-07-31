@@ -8,6 +8,7 @@ import { connectDB, getDB, closeDB } from './db.js'
 import { verifyToken } from './auth.js'
 import authRoutes from './authRoutes.js'
 import roomsApiRoutes from './roomsApi.js'
+import historyApiRoutes from './historyApi.js'
 import runRoutes from "./routes/run.js";
 import aiRoutes from "./routes/ai.js";
 
@@ -21,6 +22,7 @@ app.use('/run', runRoutes)
 
 app.use('/auth', authRoutes)
 app.use('/rooms', roomsApiRoutes)
+app.use('/rooms', historyApiRoutes)
 app.use("/ai", aiRoutes);
 
 app.get('/health', (req, res) => {
