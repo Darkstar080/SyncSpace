@@ -10,6 +10,7 @@ import { getToken, getUsername, clearSession } from './lib/api'
 import { getInitialTheme, applyToDocument, setExplicitTheme, watchSystemTheme, hasExplicitPreference } from './lib/theme'
 import ChatButton from './components/Chat/ChatButton'
 import ChatWindow from './components/Chat/ChatWindow'
+import { AIButton, AIPanel } from "./components/AIAssistant";
 
 
 export default function App() {
@@ -22,7 +23,15 @@ export default function App() {
   const [showReplay, setShowReplay] = useState(false)
   const connectionRef = useRef(null)
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [showSelectionAI, setShowSelectionAI] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isAIOpen, setIsAIOpen] = useState(false);
+  const [selectedCode, setSelectedCode] = useState("");
+  const [selectionPosition, setSelectionPosition] = useState({
+  x: 0,
+  y: 0,
+});
+const [aiPrompt, setAiPrompt] = useState("");
 
   useEffect(() => {
     applyToDocument(theme)
@@ -159,10 +168,30 @@ export default function App() {
       />
 
       <main className="flex-1 flex min-h-0">
-        <Whiteboard shapes={connection.shapes} awareness={connection.awareness} />
-        <CodeEditor codeText={connection.codeText} awareness={connection.awareness} theme={theme} />
+        <div className="relative flex-1 min-w-0">
+          <Whiteboard
+            shapes={connection.shapes}
+            awareness={connection.awareness}
+          />
+
+         <AIPanel
+          isOpen={isAIOpen}
+          onClose={() => setIsAIOpen(false)}
+          aiPrompt={aiPrompt}
+          setAiPrompt={setAiPrompt}
+        />
+        </div>
+       <CodeEditor
+          codeText={connection.codeText}
+          awareness={connection.awareness}
+          theme={theme}
+          setSelectedCode={setSelectedCode}
+          setShowSelectionAI={setShowSelectionAI}
+          setSelectionPosition={setSelectionPosition}
+        />
       </main>
 
+{/* REPLAY FEATURE */}
       {showReplay && (
         <ReplayModal
           roomId={connection.roomName}
@@ -171,9 +200,31 @@ export default function App() {
         />
       )}
 
+      {/* AI SELECTION BUTTON */}
+      {showSelectionAI && (
+        <button
+          onClick={() => {
+            setAiPrompt(selectedCode);
+            setIsAIOpen(true);
+          }}
+          style={{
+            position: "fixed",
+            left: selectionPosition.x,
+            top: selectionPosition.y,
+          }}
+          className="z-50 px-2 py-1 rounded-md bg-violet-600 text-white text-xs shadow-lg hover:bg-violet-700"
+        >
+          ✨ Ask AI
+        </button>
+      )}
+
+      {/* FLOATING ACTION BUTTONS */}
+      <AIButton
+        onClick={() => setIsAIOpen(true)}
+      />
+
       <ChatButton
         onClick={() => {
-          console.log("clicked");
           setIsChatOpen(true);
         }}
       />
