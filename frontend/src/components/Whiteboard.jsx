@@ -1057,14 +1057,14 @@ const [, forceRender] = useReducer((x) => x + 1, 0);
             onClick={() => undoManager.undo()}
             title="Ctrl+Z"
           >
-            undo
+            ← 
           </button>
           <button
             className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
             onClick={() => undoManager.redo()}
             title="Ctrl+Shift+Z"
           >
-            redo
+            →
           </button>
 
           {/* DELETE / CLEAR CANVAS CONTROLS */}
