@@ -25,6 +25,12 @@ import * as awarenessProtocol from 'y-protocols/awareness'
 import * as encoding from 'lib0/encoding'
 import * as decoding from 'lib0/decoding'
 import { loadRoomUpdate, saveRoomUpdate, flushRoom } from './persistence.js'
+import { saveHistorySnapshot } from './history.js'
+
+// How often (ms) to save a full snapshot for replay. Coarser than
+// persistence's per-update saves on purpose — replay shows periodic
+// checkpoints, not every keystroke.
+const HISTORY_SNAPSHOT_INTERVAL_MS = 30_000
 
 const MESSAGE_SYNC = 0
 const MESSAGE_AWARENESS = 1
@@ -61,6 +67,8 @@ class WSSharedDoc extends Y.Doc {
     // actually finished writing, silently losing that edit. (This is a
     // real bug that was caught by testing rapid refresh-after-draw.)
     this._pendingSave = Promise.resolve()
+    this._lastHistorySnapshotAt = 0
+    this._historyDirtySinceSnapshot = false
 
     this.awareness.on('update', ({ added, updated, removed }, origin) => {
       const changedClients = added.concat(updated, removed)
@@ -101,7 +109,18 @@ class WSSharedDoc extends Y.Doc {
       if (origin !== 'persistence-load') {
         this._pendingSave = this._pendingSave
           .then(() => saveRoomUpdate(this.name, update))
-          .catch(() => {}) // saveRoomUpdate already logs its own errors
+          .catch(() => {})
+
+        this._historyDirtySinceSnapshot = true
+        const now = Date.now()
+        if (now - this._lastHistorySnapshotAt >= HISTORY_SNAPSHOT_INTERVAL_MS) {
+          this._lastHistorySnapshotAt = now
+          this._historyDirtySinceSnapshot = false
+          const snapshot = Y.encodeStateAsUpdate(this)
+          saveHistorySnapshot(this.name, snapshot).catch((err) => {
+            console.warn(`[rooms] failed to save history snapshot for "${this.name}": ${err.message}`)
+          })
+        }
       }
     })
   }
