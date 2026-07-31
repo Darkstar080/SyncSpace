@@ -9,6 +9,7 @@ import { verifyToken } from './auth.js'
 import authRoutes from './authRoutes.js'
 import roomsApiRoutes from './roomsApi.js'
 import runRoutes from "./routes/run.js";
+import aiRoutes from "./routes/ai.js";
 
 const PORT = process.env.PORT || 4000
 
@@ -17,8 +18,10 @@ app.use(cors())
 app.use(express.json())
 app.use('/run', runRoutes)
 
+
 app.use('/auth', authRoutes)
 app.use('/rooms', roomsApiRoutes)
+app.use("/ai", aiRoutes);
 
 app.get('/health', (req, res) => {
   res.json({
