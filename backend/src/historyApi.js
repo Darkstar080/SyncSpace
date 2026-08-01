@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { getDB } from './db.js'
 import { requireAuth } from './authMiddleware.js'
 import { getHistoryIndex, getHistorySnapshot } from './history.js'
+import { forceHistorySnapshotIfActive } from './rooms.js'
 
 const router = Router()
 
@@ -27,6 +28,10 @@ async function checkRoomAccess(req, res) {
 router.get('/:roomId/history', requireAuth, async (req, res) => {
   const room = await checkRoomAccess(req, res)
   if (!room) return
+
+  // Ensure the most recent activity is actually captured before
+  // listing what's available.
+  await forceHistorySnapshotIfActive(req.params.roomId)
 
   const timestamps = await getHistoryIndex(req.params.roomId)
   res.json({ timestamps })
