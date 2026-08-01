@@ -28,8 +28,10 @@ export async function saveHistorySnapshot(docName, update) {
       timestamp,
       snapshot: Buffer.from(update),
     })
+    console.log(`[history] saved snapshot for "${docName}" at ${timestamp}, ${update.length} bytes`)
 
     // Trim oldest snapshots beyond the cap for this room.
+
     const count = await db.collection(COLLECTION).countDocuments({ docName })
     if (count > MAX_SNAPSHOTS_PER_ROOM) {
       const excess = count - MAX_SNAPSHOTS_PER_ROOM
@@ -67,5 +69,6 @@ export async function getHistorySnapshot(docName, timestamp) {
     docName,
     timestamp: Number(timestamp),
   })
+  console.log(`[history] lookup "${docName}" @ ${timestamp} ->`, doc ? `found, ${doc.snapshot.length()} bytes` : 'NOT FOUND')
   return doc ? new Uint8Array(doc.snapshot.buffer, doc.snapshot.byteOffset, doc.snapshot.byteLength) : null
 }
