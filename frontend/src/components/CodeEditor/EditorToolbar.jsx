@@ -49,21 +49,23 @@ const EditorToolbar = ({ onRun,
             <div className="relative" ref={fileMenuRef}>
               <button
                 onClick={() => setShowFileMenu(!showFileMenu)}
-                className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-700 transition"
+                className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-bg-deep transition"
               >
                 <FolderOpen size={18} className="text-yellow-400" />
-                <span className="text-white">File</span>
-                <ChevronDown size={16} className="text-gray-300" />
+                <span className="text-text">File</span>
+                <ChevronDown size={16} className="text-text-dim" />
               </button>
 
               {showFileMenu && (
-                <div className="absolute left-0 mt-2 w-56 rounded-lg bg-[#1f2335] border border-gray-700 shadow-xl z-50 overflow-hidden">
+                <div
+                 className="absolute left-0 mt-2 w-56 rounded-lg bg-bg-panel border border-border shadow-xl z-50 overflow-hidden"
+                 >
                   <button
                             onClick={() => {
                               setShowFileMenu(false);
                               onNewFile();
                             }}
-                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-700 text-white transition"
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-bg-deep text-text transition"
                           >
                     <span>New File</span>
                   </button>
@@ -73,13 +75,13 @@ const EditorToolbar = ({ onRun,
                           setShowFileMenu(false);
                           onOpenFile();
                         }}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-700 text-white transition"
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-bg-deep text-text transition"
                       >
                     <FolderOpen size={18} />
                     <span>Open File</span>
                   </button>
 
-                  <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-700 text-white transition">
+                  <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-bg-deep text-text transition">
                     <Folder size={18} />
                     <span>Open Folder</span>
                   </button>
@@ -90,20 +92,20 @@ const EditorToolbar = ({ onRun,
 
         <button
           onClick={onSave}
-          className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-700 transition"
+          className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-bg-deep transition"
         >
           <Save size={18} className="text-blue-400" />
-          <span className="text-white">Save</span>
+         <span className="text-text">Save</span>
         </button>
 
         <div className="relative" ref={settingsMenuRef}>
           <button
            onClick={() => setShowSettings((prev) => !prev)}
-            className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-700 transition"
+            className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-bg-deep transition"
           >
-            <Settings size={18} className="text-gray-300" />
-            <span className="text-white">Settings</span>
-            <ChevronDown size={16} className="text-gray-300" />
+            <Settings size={18} className="text-text-dim" />
+            <span className="text-text">Settings</span>
+            <ChevronDown size={16} className="text-text-dim" />
           </button>
 
           <EditorSettings

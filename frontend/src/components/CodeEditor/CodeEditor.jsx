@@ -82,17 +82,6 @@ useEffect(() => {
       new Set([editor]),
       awareness
     )
-      if (codeText.length === 0) {
-    codeText.insert(
-         0,
-        `Welcome to SyncSpace
-
-      ⚠️ Please create a new file or open an existing file before writing code.
-
-      Use the New File or Open File option in the toolbar.
-      `
-      );
-      }
         }
 
    function handleCreateFile(data) {
@@ -268,22 +257,40 @@ useEffect(() => {
           setEditorSettings={setEditorSettings}
         />
         </div>
-        <div className="flex-1 min-h-0">
-            <Editor
-              height="100%"
-              language={language}
-              theme={editorSettings.theme}
-             
-              onMount={handleMount}
-              options={{
-                fontSize: editorSettings.fontSize,
-                wordWrap: editorSettings.wordWrap,
-                minimap: {
-                  enabled: editorSettings.minimap,
-                },
-                lineNumbers: editorSettings.lineNumbers,
-              }}
-            />
+                <div className="relative flex-1 min-h-0">
+          <Editor
+  height="100%"
+  language={language}
+  theme={editorSettings.theme}
+  onMount={handleMount}
+  options={{
+    fontSize: editorSettings.fontSize,
+    wordWrap: editorSettings.wordWrap,
+    minimap: {
+      enabled: editorSettings.minimap,
+    },
+    lineNumbers: editorSettings.lineNumbers,
+  }}
+/>
+
+          {!currentFile && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center text-text-dim">
+                <h2 className="text-2xl font-semibold text-text">
+                  Welcome to SyncSpace
+                </h2>
+
+                <p className="mt-3">
+                  ⚠️ Please create a new file or open an existing file before writing
+                  code.
+                </p>
+
+                <p className="mt-2">
+                  Use the <b>New File</b> or <b>Open File</b> option in the toolbar.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         <OutputPanel
