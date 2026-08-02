@@ -44,18 +44,29 @@ export default function ReplayModal({ roomId, pin, onClose }) {
     return () => observer.disconnect()
   }, [])
 
-  // Load the list of available snapshot timestamps once.
+  // Load the list of available snapshot timestamps once. Guarded
+  // against stale/overlapping responses — this endpoint also triggers
+  // a fresh snapshot save server-side, and React StrictMode
+  // deliberately double-fires effects in development, so without this
+  // guard two in-flight requests can race and whichever resolves LAST
+  // wins, unpredictably overwriting fresher state with stale data.
   useEffect(() => {
+    let cancelled = false
     getRoomHistoryIndex(roomId, pin)
       .then((data) => {
+        if (cancelled) return
         setTimestamps(data.timestamps)
         setSelectedIndex(Math.max(0, data.timestamps.length - 1)) // start at most recent
         setLoading(false)
       })
       .catch((err) => {
+        if (cancelled) return
         setError(err.message)
         setLoading(false)
       })
+    return () => {
+      cancelled = true
+    }
   }, [roomId, pin])
 
   // Fetch + reconstruct the snapshot whenever the selected index changes.
