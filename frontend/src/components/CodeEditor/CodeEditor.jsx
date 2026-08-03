@@ -82,16 +82,6 @@ useEffect(() => {
       new Set([editor]),
       awareness
     )
-      if (codeText.length === 0) {
-    codeText.insert(
-      0,
-      `# Welcome to SyncSpace
-
-      # Create a new file or open an existing file from the File menu.
-      # Then click Run to execute your code.
-      `
-        );
-      }
         }
 
    function handleCreateFile(data) {
@@ -116,53 +106,41 @@ useEffect(() => {
       // Clear the collaborative editor
       codeText.delete(0, codeText.length);
 
-        const templates = {
-          python:
-        `# Welcome to SyncSpace
-        # Create/Open a file and click Run to execute your code.
+      const templates = {
+      python: "# Start coding here\n\n",
 
-        `,
+      javascript: "// Start coding here\n\n",
 
-          java:
-        `// Welcome to SyncSpace
-        // Create/Open a file and click Run to execute your code.
+      typescript: "// Start coding here\n\n",
 
-        public class Main {
+      java: `// Start coding here
 
-        }
-        `,
+    public class Main {
 
-          cpp:
-        `// Welcome to SyncSpace
-        // Create/Open a file and click Run to execute your code.
+    }
+    `,
 
-        #include <iostream>
-        using namespace std;
+      cpp: `// Start coding here
 
-        int main() {
+    #include <iostream>
+    using namespace std;
 
-            return 0;
-        }
-        `,
+    int main() {
 
-          c:
-        `// Welcome to SyncSpace
-        // Create/Open a file and click Run to execute your code.
+        return 0;
+    }
+    `,
 
-        #include <stdio.h>
+      c: `// Start coding here
 
-        int main() {
+    #include <stdio.h>
 
-            return 0;
-        }
-        `,
+    int main() {
 
-          typescript:
-        `// Welcome to SyncSpace
-        // Create/Open a file and click Run to execute your code.
-
-        `,
-        };
+        return 0;
+    }
+    `,
+          };
 
         codeText.insert(0, templates[data.language] || "");
 
@@ -229,7 +207,6 @@ useEffect(() => {
 
         console.log("Sending Language:", language);
         console.log("Sending Code:", code);
-
         try {
           const response = await fetch("http://localhost:4000/run", {
             method: "POST",
@@ -280,22 +257,40 @@ useEffect(() => {
           setEditorSettings={setEditorSettings}
         />
         </div>
-        <div className="flex-1 min-h-0">
-            <Editor
-              height="100%"
-              language={language}
-              theme={editorSettings.theme}
-             
-              onMount={handleMount}
-              options={{
-                fontSize: editorSettings.fontSize,
-                wordWrap: editorSettings.wordWrap,
-                minimap: {
-                  enabled: editorSettings.minimap,
-                },
-                lineNumbers: editorSettings.lineNumbers,
-              }}
-            />
+                <div className="relative flex-1 min-h-0">
+          <Editor
+  height="100%"
+  language={language}
+  theme={editorSettings.theme}
+  onMount={handleMount}
+  options={{
+    fontSize: editorSettings.fontSize,
+    wordWrap: editorSettings.wordWrap,
+    minimap: {
+      enabled: editorSettings.minimap,
+    },
+    lineNumbers: editorSettings.lineNumbers,
+  }}
+/>
+
+          {!currentFile && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center text-text-dim">
+                <h2 className="text-2xl font-semibold text-text">
+                  Welcome to SyncSpace
+                </h2>
+
+                <p className="mt-3">
+                  ⚠️ Please create a new file or open an existing file before writing
+                  code.
+                </p>
+
+                <p className="mt-2">
+                  Use the <b>New File</b> or <b>Open File</b> option in the toolbar.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         <OutputPanel
