@@ -62,6 +62,12 @@ export async function getHistoryIndex(docName) {
   return docs.map((d) => d.timestamp)
 }
 
+/** Delete all history snapshots for a room (used when the room is deleted). */
+export async function clearRoomHistory(docName) {
+  const db = getDB()
+  await db.collection(COLLECTION).deleteMany({ docName })
+}
+
 /** The raw Yjs update bytes for one specific snapshot. */
 export async function getHistorySnapshot(docName, timestamp) {
   const db = getDB()

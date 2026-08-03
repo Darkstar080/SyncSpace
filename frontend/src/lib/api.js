@@ -101,3 +101,10 @@ export async function getRoomHistorySnapshot(roomId, pin, timestamp) {
     { auth: true }
   )
 }
+
+export async function deleteRoom(roomId) {
+  return request(`/rooms/${encodeURIComponent(roomId)}`, {
+    method: 'DELETE',
+    auth: true,
+  })
+}

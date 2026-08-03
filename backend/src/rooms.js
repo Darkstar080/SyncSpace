@@ -314,9 +314,34 @@ export function getRoomStats() {
  * the History view, so "the latest point" always reflects genuinely
  * current state instead of waiting for the next timer tick.
  */
+
 export async function forceHistorySnapshotIfActive(docName) {
   const doc = rooms.get(docName)
   if (doc) {
     await takeHistorySnapshotIfDirty(doc)
   }
+}
+
+/**
+ * Force-close a room that's currently active in memory (used when the
+ * owner deletes it). Disconnects everyone with a specific close reason
+ * so their client isn't left silently retrying a room that no longer
+ * exists — a fresh reconnect attempt will correctly get a 404 from the
+ * upgrade handler either way, but closing proactively is more honest
+ * than waiting for that to eventually happen.
+ */
+export function forceCloseRoom(docName, reason = 'Room deleted') {
+  const doc = rooms.get(docName)
+  if (!doc) return
+
+  doc.conns.forEach((conn) => {
+    try {
+      conn.close(4001, reason)
+    } catch (e) {
+      /* already closed */
+    }
+  })
+  clearInterval(doc._historyInterval)
+  rooms.delete(docName)
+  console.log(`[rooms] room "${docName}" force-closed: ${reason}`)
 }

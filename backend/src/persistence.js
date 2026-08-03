@@ -112,6 +112,15 @@ export async function flushRoom(docName) {
   }
 }
 
+export async function clearRoomPersistence(docName) {
+  if (!available) return
+  try {
+    await mdb.clearDocument(docName)
+  } catch (err) {
+    console.warn(`[persistence] failed to clear room "${docName}": ${err.message}`)
+  }
+}
+
 export async function closePersistence() {
   if (mdb) {
     await mdb.destroy().catch(() => {})
