@@ -2,6 +2,9 @@ import { Router } from 'express'
 import { randomInt } from 'crypto'
 import { getDB } from './db.js'
 import { requireAuth } from './authMiddleware.js'
+import { clearRoomPersistence } from './persistence.js'
+import { clearRoomHistory } from './history.js'
+import { forceCloseRoom } from './rooms.js'
 
 const router = Router()
 
@@ -54,6 +57,28 @@ router.get('/', requireAuth, async (req, res) => {
 // so a wrong PIN produces a clean, immediate error message, instead of
 // y-websocket's auto-reconnect silently retrying the same bad
 // credentials forever in the background with no clear feedback.
+router.delete('/:roomId', requireAuth, async (req, res) => {
+  const { roomId } = req.params
+  const db = getDB()
+
+  const room = await db.collection('rooms').findOne({ _id: roomId })
+  if (!room) {
+    return res.status(404).json({ error: 'no room with that ID exists' })
+  }
+  if (room.ownerId !== req.user.userId) {
+    return res.status(403).json({ error: 'only the room owner can delete it' })
+  }
+
+  // Disconnect anyone currently active BEFORE removing the room record,
+  // so a reconnect attempt mid-deletion still gets a clean rejection.
+  forceCloseRoom(roomId, 'Room deleted by owner')
+
+  await db.collection('rooms').deleteOne({ _id: roomId })
+  await clearRoomPersistence(roomId)
+  await clearRoomHistory(roomId)
+
+  res.json({ ok: true })
+})
 router.post('/:roomId/verify', requireAuth, async (req, res) => {
   const { roomId } = req.params
   const { pin } = req.body || {}

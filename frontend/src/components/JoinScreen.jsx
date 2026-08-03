@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createRoom, getMyRooms, getUsername, clearSession, verifyRoomAccess } from '../lib/api'
+import { createRoom, getMyRooms, getUsername, clearSession, verifyRoomAccess, deleteRoom } from '../lib/api'
 
 export default function JoinScreen({ onJoin, onLogout, theme, onToggleTheme }) {
   const [myRooms, setMyRooms] = useState([])
@@ -43,6 +43,20 @@ export default function JoinScreen({ onJoin, onLogout, theme, onToggleTheme }) {
       refreshRooms()
     } catch (err) {
       setCreateError(err.message)
+    }
+  }
+
+  async function handleDelete(roomId) {
+    const confirmed = window.confirm(
+      `Delete room "${roomId}"? This permanently removes it and everything in it — this cannot be undone.`
+    )
+    if (!confirmed) return
+
+    try {
+      await deleteRoom(roomId)
+      refreshRooms()
+    } catch (err) {
+      alert(`Failed to delete room: ${err.message}`)
     }
   }
 
@@ -192,6 +206,12 @@ export default function JoinScreen({ onJoin, onLogout, theme, onToggleTheme }) {
                     className="text-xs bg-accent text-bg-deep rounded px-2.5 py-1 cursor-pointer hover:brightness-110 disabled:opacity-50"
                   >
                     Join
+                  </button>
+                  <button
+                    onClick={() => handleDelete(r.roomId)}
+                    className="text-xs text-accent-2 underline cursor-pointer bg-transparent border-none"
+                  >
+                    Delete
                   </button>
                 </div>
               </div>
