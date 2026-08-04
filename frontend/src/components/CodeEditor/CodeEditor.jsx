@@ -236,15 +236,15 @@ useEffect(() => {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       
-      <div className="flex items-center justify-between px-4 py-2.5 bg-bg-panel border-b border-border flex-shrink-0">
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-bg-panel/60 backdrop-blur-xl border-b border-border/50 flex-shrink-0">
         <div className="flex flex-col">
-          <span className="font-medium text-text">
+          <span className="font-medium text-sm text-text">
             {currentFile ? currentFile.name : "Code Editor"}
           </span>
-
           {currentFile && (
-            <span className="text-xs text-gray-400">
-              {currentFile.language.toUpperCase()}
+            <span className="text-[10px] text-accent/70 font-mono mt-0.5 uppercase tracking-wider">
+              {currentFile.language}
             </span>
           )}
         </div>
@@ -256,7 +256,7 @@ useEffect(() => {
           editorSettings={editorSettings}
           setEditorSettings={setEditorSettings}
         />
-        </div>
+      </div>
                 <div className="relative flex-1 min-h-0">
           <Editor
   height="100%"
@@ -275,18 +275,11 @@ useEffect(() => {
 
           {!currentFile && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-center text-text-dim">
-                <h2 className="text-2xl font-semibold text-text">
-                  Welcome to SyncSpace
-                </h2>
-
-                <p className="mt-3">
-                  ⚠️ Please create a new file or open an existing file before writing
-                  code.
-                </p>
-
-                <p className="mt-2">
-                  Use the <b>New File</b> or <b>Open File</b> option in the toolbar.
+              <div className="text-center">
+                <p className="text-4xl mb-4">⌨️</p>
+                <h2 className="text-lg font-semibold text-text mb-2">Welcome to SyncSpace</h2>
+                <p className="text-sm text-text-dim max-w-xs leading-relaxed">
+                  Create a <span className="text-accent font-medium">New File</span> or open an existing one from the toolbar to start coding.
                 </p>
               </div>
             </div>

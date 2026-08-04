@@ -1457,30 +1457,27 @@ const [, forceRender] = useReducer((x) => x + 1, 0);
 
         {showTextPanel && (
           <div
-            style={{
-              position: "absolute",
-              left: 20,
-              top: 70,
-              width: 250,
-              background: "#fff",
-              borderRadius: "16px",
-              padding: "18px",
-              boxShadow: "0 4px 15px rgba(0,0,0,0.15)",
-              border: "1px solid #ddd",
-              zIndex: 1000,
-            }}
+            style={{ position: "absolute", left: 20, top: 70, width: 260, zIndex: 1000 }}
+            className="bg-bg-panel/80 backdrop-blur-2xl border border-border/50 rounded-2xl p-4 shadow-2xl"
           >
-            <h3 style={{ marginBottom: 15 }}>Text Settings</h3>
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-6 h-6 rounded-md bg-accent/15 border border-accent/30 flex items-center justify-center text-xs">
+                T
+              </div>
+              <span className="text-xs font-bold text-text uppercase tracking-widest">Text Settings</span>
+            </div>
 
-            <div style={{ marginBottom: 15 }}>
-              <div style={{ marginBottom: 5 }}>Font Family</div>
+            {/* Font Family */}
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-text-dim mb-1.5 uppercase tracking-wider">Font Family</label>
               <select
                 value={fontFamily}
-                style={{ width: "100%", padding: "8px", borderRadius: "8px" }}
                 onChange={(e) => {
                   setFontFamily(e.target.value);
                   updateSelectedText("fontFamily", e.target.value);
                 }}
+                className="w-full bg-bg-deep/60 border border-border/50 text-text text-xs rounded-xl px-3 py-2 outline-none focus:border-accent/50 transition-colors"
               >
                 <option value="Arial">Arial</option>
                 <option value="Verdana">Verdana</option>
@@ -1491,37 +1488,44 @@ const [, forceRender] = useReducer((x) => x + 1, 0);
               </select>
             </div>
 
-            <div style={{ marginBottom: 15 }}>
-              <div style={{ marginBottom: 5 }}>Font Size</div>
+            {/* Font Size */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-text-dim uppercase tracking-wider">Font Size</label>
+                <span className="text-xs font-semibold text-accent">{fontSize}px</span>
+              </div>
               <input
                 type="range"
                 min="8"
                 max="72"
                 value={fontSize}
-                style={{ width: "100%" }}
                 onChange={(e) => {
                   const value = Number(e.target.value);
                   setFontSize(value);
                   updateSelectedText("fontSize", value);
                 }}
+                className="w-full cursor-pointer accent-[#00bcd4]"
               />
-              <div>{fontSize}px</div>
             </div>
 
+            {/* Font Color */}
             <div>
-              <div style={{ marginBottom: 5 }}>Font Color</div>
-              <input
-                type="color"
-                value={fontColor}
-                style={{ width: "100%", height: "40px", border: "none" }}
-                onChange={(e) => {
-                  setFontColor(e.target.value);
-                  updateSelectedText("color", e.target.value);
-                }}
-              />
+              <label className="block text-xs font-semibold text-text-dim mb-1.5 uppercase tracking-wider">Font Color</label>
+              <div className="relative w-full h-9 rounded-xl overflow-hidden border border-border/50 cursor-pointer">
+                <input
+                  type="color"
+                  value={fontColor}
+                  onChange={(e) => {
+                    setFontColor(e.target.value);
+                    updateSelectedText("color", e.target.value);
+                  }}
+                  className="absolute inset-0 w-full h-full cursor-pointer border-none"
+                />
+              </div>
             </div>
           </div>
         )}
+
 
         {showPenPanel && (
           <div ref={penPanelRef}>

@@ -5,18 +5,18 @@
    `border-accent`, etc.) This keeps our dark dev-tool theme consistent
    across every component instead of hardcoding hex values everywhere. */
 @theme {
-  --color-bg: #1e1e2e;
-  --color-bg-panel: #181825;
-  --color-bg-deep: #11111b;
-  --color-border: #313244;
-  --color-text: #cdd6f4;
-  --color-text-dim: #9399b2;
-  --color-accent: #89b4fa;
-  --color-accent-2: #f38ba8;
-  --color-success: #a6e3a1;
-  --color-mauve: #cba6f7;
-  --color-peach: #fab387;
-  --color-sky: #89dceb;
+  --color-bg: #0a0a0a; /* deep black background */
+  --color-bg-panel: #111111; /* slightly lighter panel */
+  --color-bg-deep: #090909; /* very deep for inner elements */
+  --color-border: #222222; /* subtle border */
+  --color-text: #e0e0e0; /* light gray text */
+  --color-text-dim: #a0a0a0; /* dimmed text */
+  --color-accent: #00bcd4; /* cyan accent */
+  --color-accent-2: #ff4081; /* pink accent */
+  --color-success: #4caf50; /* green success */
+  --color-mauve: #9c27b0; /* purple for highlights */
+  --color-peach: #ff9800; /* orange for warnings */
+  --color-sky: #03a9f4; /* sky blue */
 }
 
 /* Light mode — Catppuccin Latte, the official light counterpart to the

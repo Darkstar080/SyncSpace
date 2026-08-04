@@ -1,37 +1,24 @@
 import { useState } from "react"
+import { motion } from "framer-motion"
 
 export default function MiniPenBar({
   onExpand,
   onClose,
-    position,
+  position,
   setPosition,
 }) {
-
-    const [dragging, setDragging] = useState(false)
-    const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [dragging, setDragging] = useState(false)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
 
   return (
-    <div 
-    onMouseDown={(e) => {
+    <motion.div
+      drag
+      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+      onDragStart={(e, info) => {
         setDragging(true)
-        setOffset({
-            x: e.clientX - position.x,
-            y: e.clientY - position.y,
-        })
-        }}
-
-        onMouseMove={(e) => {
-        if (!dragging) return
-
-        setPosition({
-            x: e.clientX - offset.x,
-            y: e.clientY - offset.y,
-        })
-        }}
-
-        onMouseUp={() => setDragging(false)}
-
-        onMouseLeave={() => setDragging(false)}
+        setOffset({ x: info.point.x - position.x, y: info.point.y - position.y })
+      }}
+      onDragEnd={() => setDragging(false)}
       style={{
         position: "absolute",
         top: position.y,
@@ -40,56 +27,35 @@ export default function MiniPenBar({
         userSelect: "none",
         width: 250,
         height: 42,
-        background: "#fff",
-        border: "1px solid #ddd",
-        borderRadius: "10px",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0 12px",
         zIndex: 1000,
       }}
+      className="bg-bg-panel/60 backdrop-blur-xl border border-border/50 rounded-xl flex items-center justify-between px-3 py-1.5 shadow-2xl"
     >
-      <span
-        style={{
-          fontWeight: "600",
-          fontSize: "14px",
-        }}
-      >
+      <span className="font-semibold text-sm text-text">
         ✏️ Pen Settings
       </span>
 
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-        }}
-      >
-        <button
+      <div className="flex gap-2 items-center">
+        <motion.button
+          whileHover={{ scale: 1.15 }}
+          whileTap={{ scale: 0.9 }}
           onClick={onExpand}
-          style={{
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
-            fontSize: "16px",
-          }}
+          className="border-none bg-transparent cursor-pointer text-sm text-text-dim hover:text-accent transition-colors"
+          title="Expand"
         >
           ▼
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
+          whileHover={{ scale: 1.15 }}
+          whileTap={{ scale: 0.9 }}
           onClick={onClose}
-          style={{
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
-            fontSize: "16px",
-          }}
+          className="border-none bg-transparent cursor-pointer text-sm text-text-dim hover:text-accent-2 transition-colors"
+          title="Close"
         >
           ✕
-        </button>
+        </motion.button>
       </div>
-    </div>
+    </motion.div>
   )
 }

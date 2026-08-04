@@ -1,24 +1,25 @@
 import { useState } from "react"
+import { motion } from "framer-motion"
 
 const SHAPES = [
-  { id: "rect", label: "▭", name: "Rectangle" },
-  { id: "circle", label: "◯", name: "Circle" },
-  { id: "ellipse", label: "⬭", name: "Ellipse" },
-  { id: "line", label: "／", name: "Line" },
-  { id: "arrow", label: "➜", name: "Arrow" },
+  { id: "rect",     label: "▭", name: "Rectangle" },
+  { id: "circle",   label: "◯", name: "Circle" },
+  { id: "ellipse",  label: "⬭", name: "Ellipse" },
+  { id: "line",     label: "／", name: "Line" },
+  { id: "arrow",    label: "➜", name: "Arrow" },
   { id: "triangle", label: "△", name: "Triangle" },
-  { id: "diamond", label: "◇", name: "Diamond" },
-  { id: "star", label: "★", name: "Star" },
+  { id: "diamond",  label: "◇", name: "Diamond" },
+  { id: "star",     label: "★", name: "Star" },
 ]
 
 const COLORS = [
-  "#1e1e1e",
-  "#e03131",
-  "#1971c2",
-  "#2f9e44",
-  "#f08c00",
-  "#ae3ec9",
-  "#ffffff"
+  "#0a0a0a",
+  "#00bcd4",
+  "#ff4081",
+  "#4caf50",
+  "#9c27b0",
+  "#ff9800",
+  "#e0e0e0",
 ]
 
 export default function MiniShapeBar({
@@ -32,126 +33,96 @@ export default function MiniShapeBar({
   setPosition,
 }) {
   const [dragging, setDragging] = useState(false)
-  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [offset, setOffset]     = useState({ x: 0, y: 0 })
 
   const currentShape = SHAPES.find((s) => s.id === tool) || SHAPES[0]
 
   return (
-    <div
-      onMouseDown={(e) => {
+    <motion.div
+      drag
+      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+      onDragStart={(e, info) => {
         setDragging(true)
-        setOffset({
-          x: e.clientX - position.x,
-          y: e.clientY - position.y,
-        })
+        setOffset({ x: info.point.x - position.x, y: info.point.y - position.y })
       }}
-      onMouseMove={(e) => {
-        if (!dragging) return
-        setPosition({
-          x: e.clientX - offset.x,
-          y: e.clientY - offset.y,
-        })
-      }}
-      onMouseUp={() => setDragging(false)}
-      onMouseLeave={() => setDragging(false)}
+      onDragEnd={() => setDragging(false)}
       style={{
         position: "absolute",
         top: position.y,
         left: position.x,
         cursor: dragging ? "grabbing" : "grab",
         userSelect: "none",
-        background: "#fff",
-        border: "1px solid #ddd",
-        borderRadius: "12px",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        display: "flex",
-        alignItems: "center",
-        gap: "10px",
-        padding: "6px 12px",
         zIndex: 1000,
       }}
+      className="bg-bg-panel/70 backdrop-blur-xl border border-border/50 rounded-2xl flex items-center gap-3 px-3 py-2 shadow-2xl"
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: "600", fontSize: "14px" }}>
-        <span>Shape: {currentShape.label}</span>
-      </div>
+      {/* Current shape label */}
+      <span className="font-semibold text-sm text-text whitespace-nowrap">
+        Shape: {currentShape.label}
+      </span>
 
-      <div style={{ display: "flex", gap: "4px", borderLeft: "1px solid #eee", borderRight: "1px solid #eee", padding: "0 6px" }}>
+      {/* Shape buttons */}
+      <div className="flex gap-1 border-l border-r border-border/40 px-2">
         {SHAPES.map((shape) => (
-          <button
+          <motion.button
             key={shape.id}
+            whileHover={{ scale: 1.2 }}
+            whileTap={{ scale: 0.9 }}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={() => setTool(shape.id)}
             title={shape.name}
-            style={{
-              padding: "4px 8px",
-              borderRadius: "6px",
-              border: tool === shape.id ? "1.5px solid #2563eb" : "1px solid #eee",
-              background: tool === shape.id ? "#eef4ff" : "#f9fafb",
-              color: tool === shape.id ? "#2563eb" : "#374151",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: tool === shape.id ? "bold" : "normal",
-              transition: "all 0.15s ease",
-            }}
+            className={`w-7 h-7 rounded-lg text-sm cursor-pointer flex items-center justify-center border transition-all ${
+              tool === shape.id
+                ? "border-accent bg-accent/15 text-accent shadow-[0_0_8px_rgba(0,188,212,0.3)]"
+                : "border-border/40 bg-bg-deep/30 text-text-dim hover:text-text hover:border-border"
+            }`}
           >
             {shape.label}
-          </button>
+          </motion.button>
         ))}
       </div>
 
-      {/* Color Dots */}
-      <div style={{ display: "flex", gap: "4px", alignItems: "center", borderRight: "1px solid #eee", paddingRight: "6px" }}>
+      {/* Color dots */}
+      <div className="flex gap-1 items-center border-r border-border/40 pr-2">
         {COLORS.map((color) => (
-          <div
+          <motion.div
             key={color}
+            whileHover={{ scale: 1.3 }}
+            whileTap={{ scale: 0.9 }}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={() => setPenColor && setPenColor(color)}
-            style={{
-              width: 15,
-              height: 15,
-              borderRadius: "50%",
-              background: color,
-              cursor: "pointer",
-              border: penColor === color ? "2px solid #2563eb" : "1px solid #ccc",
-            }}
+            className={`w-4 h-4 rounded-full cursor-pointer border ${
+              penColor === color ? "border-accent" : "border-border/50"
+            }`}
+            style={{ background: color }}
             title={color}
           />
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-        <button
+      {/* Expand / Close */}
+      <div className="flex gap-1 items-center">
+        <motion.button
+          whileHover={{ scale: 1.15 }}
+          whileTap={{ scale: 0.9 }}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={onExpand}
           title="Expand Shape Panel"
-          style={{
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
-            fontSize: "14px",
-            color: "#6b7280",
-            padding: "2px 4px",
-          }}
+          className="border-none bg-transparent cursor-pointer text-xs text-text-dim hover:text-accent transition-colors"
         >
           ▼
-        </button>
-
-        <button
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.15 }}
+          whileTap={{ scale: 0.9 }}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={onClose}
           title="Close Panel"
-          style={{
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
-            fontSize: "14px",
-            color: "#6b7280",
-            padding: "2px 4px",
-          }}
+          className="border-none bg-transparent cursor-pointer text-xs text-text-dim hover:text-accent-2 transition-colors"
         >
           ✕
-        </button>
+        </motion.button>
       </div>
-    </div>
+    </motion.div>
   )
 }

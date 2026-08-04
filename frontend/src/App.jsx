@@ -11,6 +11,7 @@ import { getInitialTheme, applyToDocument, setExplicitTheme, watchSystemTheme, h
 import ChatButton from './components/Chat/ChatButton'
 import ChatWindow from './components/Chat/ChatWindow'
 import { AIButton, AIPanel } from "./components/AIAssistant";
+import { motion } from 'framer-motion';
 
 
 export default function App() {
@@ -109,57 +110,74 @@ const [aiPrompt, setAiPrompt] = useState("");
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      <header className="h-13 flex-shrink-0 flex items-center justify-between px-5 bg-bg-panel border-b border-border">
-        <div className="flex items-center gap-3">
-          <span className="font-bold tracking-tight text-text">SyncSpace</span>
-          <span className="text-xs text-text-dim bg-bg-deep px-2.5 py-1 rounded-full border border-border">
-            Room: {connection.roomName}
+    <div className="h-screen flex flex-col bg-bg overflow-hidden relative">
+      <motion.header 
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="h-14 flex-shrink-0 flex items-center justify-between px-6 bg-bg-panel/60 backdrop-blur-xl border-b border-border/50 z-20 shadow-sm"
+      >
+        <div className="flex items-center gap-4">
+          <motion.span whileHover={{ scale: 1.05 }} className="font-bold text-lg tracking-tight bg-gradient-to-r from-accent to-mauve bg-clip-text text-transparent cursor-default">
+            SyncSpace
+          </motion.span>
+          <span className="text-xs font-mono text-text-dim bg-bg-deep/50 px-3 py-1.5 rounded-lg border border-border/50">
+            Room: <span className="text-text">{connection.roomName}</span>
           </span>
-          <button
-  onClick={handleLeaveRoom}
-  className="px-2.5 py-1 rounded-md text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
->
-  Leave room
-</button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleLeaveRoom}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-accent-2/10 text-accent-2 border border-accent-2/30 hover:bg-accent-2 hover:text-white transition-all cursor-pointer shadow-[0_0_10px_rgba(243,139,168,0.1)]"
+          >
+            Leave room
+          </motion.button>
         </div>
-        <div className="flex items-center gap-2.5">
-          <button
+        <div className="flex items-center gap-3">
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="text-xs text-text-dim border border-border rounded-full px-2.5 py-1 cursor-pointer hover:text-text"
+            className="text-sm text-text-dim border border-border/50 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer hover:text-text hover:bg-bg-deep/50 transition-colors"
           >
             {theme === 'dark' ? '☀' : '☾'}
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => setShowReplay(true)}
-            className="text-xs text-text-dim border border-border rounded-full px-2.5 py-1 cursor-pointer hover:text-text"
+            className="text-xs font-semibold text-text-dim border border-border/50 bg-bg-deep/30 rounded-lg px-3 py-1.5 cursor-pointer hover:text-text hover:border-text-dim/50 transition-all"
           >
             History
-          </button>
-          <span
-            className={`w-2 h-2 rounded-full ${
-              status === 'connected'
-                ? 'bg-success shadow-[0_0_6px_var(--color-success)]'
-                : status === 'disconnected'
-                ? 'bg-accent-2'
-                : 'bg-text-dim'
-            }`}
-          />
-          <span className="text-xs text-text-dim capitalize">{status}</span>
-          <div className="flex gap-1.5 ml-2.5">
+          </motion.button>
+          <div className="flex items-center gap-2 bg-bg-deep/40 px-3 py-1.5 rounded-lg border border-border/30">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                status === 'connected'
+                  ? 'bg-success shadow-[0_0_8px_var(--color-success)]'
+                  : status === 'disconnected'
+                  ? 'bg-accent-2 shadow-[0_0_8px_var(--color-accent-2)]'
+                  : 'bg-text-dim'
+              }`}
+            />
+            <span className="text-xs font-medium text-text-dim capitalize">{status}</span>
+          </div>
+          <div className="flex gap-1.5 ml-2">
             {users.map((u, i) => (
-              <span
+              <motion.span
+                whileHover={{ y: -2 }}
                 key={i}
-                className="text-xs px-2.5 py-1 rounded-full text-bg-deep font-semibold"
+                className="text-xs px-2.5 py-1 rounded-full text-bg-deep font-bold shadow-md"
                 style={{ background: u.color }}
+                title={u.name}
               >
-                {u.name}
-              </span>
+                {u.name.charAt(0).toUpperCase() + u.name.slice(1, 2)}
+              </motion.span>
             ))}
           </div>
         </div>
-      </header>
+      </motion.header>
 
       <ConnectionBanner
         status={status}

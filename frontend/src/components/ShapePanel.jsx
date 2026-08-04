@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 
 const SHAPES = [
   { id: "rect", label: "▭ Rectangle" },
@@ -12,15 +13,15 @@ const SHAPES = [
 ];
 
 const COLORS = [
-  "#1e1e1e",
-  "#e03131",
-  "#1971c2",
-  "#2f9e44",
-  "#f08c00",
-  "#ae3ec9",
-  "#ff6b6b",
-  "#4d96ff",
-  "#ffffff"
+  "#0a0a0a",
+  "#00bcd4",
+  "#ff4081",
+  "#4caf50",
+  "#9c27b0",
+  "#ff9800",
+  "#03a9f4",
+  "#e0e0e0",
+  "#a0a0a0"
 ];
 
 export default function ShapePanel({
@@ -37,76 +38,55 @@ export default function ShapePanel({
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
   return (
-    <div
-      onMouseDown={(e) => {
+    <motion.div
+      drag={true}
+      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+      onDragStart={(e, info) => {
         setDragging(true);
-        setOffset({
-          x: e.clientX - position.x,
-          y: e.clientY - position.y,
-        });
+        setOffset({ x: info.point.x - position.x, y: info.point.y - position.y });
       }}
-      onMouseMove={(e) => {
-        if (!dragging) return;
-        setPosition({
-          x: e.clientX - offset.x,
-          y: e.clientY - offset.y,
-        });
-      }}
-      onMouseUp={() => setDragging(false)}
-      onMouseLeave={() => setDragging(false)}
+      onDragEnd={() => setDragging(false)}
       style={{
         position: "absolute",
         top: position.y,
         left: position.x,
         width: 320,
-        background: "#fff",
-        border: "1px solid #ddd",
-        borderRadius: "12px",
-        padding: "16px",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
         zIndex: 1000,
-        userSelect: "none",
         cursor: dragging ? "grabbing" : "grab",
+        userSelect: "none",
       }}
+      className="bg-bg-panel/60 backdrop-blur-xl border border-border/50 rounded-2xl p-4 shadow-2xl"
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-        <span style={{ fontWeight: "600", fontSize: "15px" }}>Shapes & Lines</span>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+      <div className="flex justify-between items-center mb-3">
+        <span className="font-semibold text-sm text-text">Shapes & Lines</span>
+        <div className="flex gap-2 items-center">
           {onMinimize && (
             <button
               onMouseDown={(e) => e.stopPropagation()}
               onClick={onMinimize}
               title="Minimize Panel"
-              style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: "14px", color: "#666" }}
+              className="border-none bg-transparent cursor-pointer text-sm text-text-dim hover:text-text"
             >
               ▲
             </button>
           )}
           <button
-            onMouseDown={(e) => e.stopPropagation()} // Prevent dragging
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={onClose}
-            style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: "16px", color: "#666" }}
+            className="border-none bg-transparent cursor-pointer text-sm text-text-dim hover:text-text"
           >
             ✕
           </button>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "16px" }}>
+      <div className="grid grid-cols-2 gap-2 mb-4">
         {SHAPES.map((shape) => (
           <button
             key={shape.id}
-            onMouseDown={(e) => e.stopPropagation()} // Prevent dragging when clicking buttons
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={() => setTool(shape.id)}
-            style={{
-              padding: "8px",
-              borderRadius: "8px",
-              border: tool === shape.id ? "2px solid #2563eb" : "1px solid #ddd",
-              background: tool === shape.id ? "#eef4ff" : "#fff",
-              cursor: "pointer",
-              textAlign: "left",
-              fontWeight: tool === shape.id ? "600" : "normal",
-            }}
+            className={`p-2 rounded-lg border ${tool === shape.id ? "border-accent bg-accent/10 text-accent" : "border-border bg-bg-deep/30 text-text"}`}
           >
             {shape.label}
           </button>
@@ -114,26 +94,16 @@ export default function ShapePanel({
       </div>
 
       {/* Color Selector Section */}
-      <div style={{ paddingTop: "12px", borderTop: "1px solid #eee" }}>
-        <div style={{ fontSize: "14px", fontWeight: "600", marginBottom: "10px" }}>
-          Shape Color
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+      <div className="pt-3 border-t border-border/30">
+        <div className="text-sm font-semibold mb-2 text-text">Shape Color</div>
+        <div className="flex flex-wrap gap-2">
           {COLORS.map((color) => (
             <div
               key={color}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => setPenColor && setPenColor(color)}
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: "50%",
-                background: color,
-                cursor: "pointer",
-                border: penColor === color ? "2.5px solid #2563eb" : "1px solid #ccc",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                transition: "transform 0.1s",
-              }}
+              className={`w-5 h-5 rounded-full cursor-pointer border ${penColor === color ? "border-accent" : "border-border"}`}
+              style={{ background: color }}
               title={color}
             />
           ))}
@@ -141,35 +111,18 @@ export default function ShapePanel({
           {/* Custom Color Input */}
           <div
             onMouseDown={(e) => e.stopPropagation()}
-            style={{
-              position: "relative",
-              width: 24,
-              height: 24,
-              borderRadius: "50%",
-              overflow: "hidden",
-              border: "1px solid #ccc",
-              cursor: "pointer",
-            }}
+            className="relative w-6 h-6 rounded-full overflow-hidden border border-border cursor-pointer"
             title="Custom Color"
           >
             <input
               type="color"
-              value={penColor || "#1e1e1e"}
+              value={penColor || "#0a0a0a"}
               onChange={(e) => setPenColor && setPenColor(e.target.value)}
-              style={{
-                position: "absolute",
-                top: -5,
-                left: -5,
-                width: 34,
-                height: 34,
-                cursor: "pointer",
-                border: "none",
-                background: "transparent",
-              }}
+              className="absolute inset-0 w-full h-full cursor-pointer border-none bg-transparent"
             />
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

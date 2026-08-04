@@ -1,52 +1,34 @@
 import { useState } from 'react'
 import { login, register } from '../lib/api'
+import { motion } from 'framer-motion'
 
-/**
- * Small toggle button placed inside a password field to reveal/hide the
- * typed value. Kept as a tiny local component since both the password
- * and confirm-password fields need the exact same button.
- */
 function PasswordToggleButton({ visible, onClick }) {
   return (
-    <button
+    <motion.button
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.9 }}
       type="button"
       onClick={onClick}
       tabIndex={-1}
-      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 cursor-pointer opacity-70 hover:opacity-100"
-      style={{ color: 'var(--auth-text-dim)' }}
+      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 cursor-pointer text-text-dim hover:text-text transition-colors"
       aria-label={visible ? 'Hide password' : 'Show password'}
     >
       {visible ? (
-        // eye-off icon
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M3 3l18 18M10.58 10.58a2 2 0 002.83 2.83M9.88 4.24A9.53 9.53 0 0112 4c5 0 9 4 10 8-.36 1.28-1 2.5-1.85 3.55M6.5 6.5C4.5 8 3.13 10 2 12c1 4 5 8 10 8a9.5 9.5 0 004.24-.99" />
         </svg>
       ) : (
-        // eye icon
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8-10-8-10-8z" />
           <circle cx="12" cy="12" r="3" />
         </svg>
       )}
-    </button>
+    </motion.button>
   )
 }
 
-/**
- * Design notes (so future edits stay consistent with the intent):
- * - Palette and fonts here are scoped to THIS component via inline CSS
- *   custom properties on the wrapping div — deliberately not touching
- *   the shared Tailwind theme in index.css, so the rest of the app
- *   (Whiteboard, CodeEditor, JoinScreen) is untouched by this pass.
- * - Amber + teal are used to evoke syntax highlighting (keyword vs.
- *   string), not as a single decorative neon accent.
- * - The left preview panel is a stylized, non-interactive mock of the
- *   actual product (mini whiteboard + code pane with drifting labeled
- *   cursors) — it shows what SyncSpace does before you even log in,
- *   rather than just naming it.
- */
 export default function AuthScreen({ onAuthenticated }) {
-  const [mode, setMode] = useState('login') // 'login' | 'register'
+  const [mode, setMode] = useState('login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -56,29 +38,13 @@ export default function AuthScreen({ onAuthenticated }) {
   const [fieldErrors, setFieldErrors] = useState({})
   const [loading, setLoading] = useState(false)
 
-  // Mirrors the backend's actual rules (see authRoutes.js) so obvious
-  // mistakes are caught instantly, without a round trip to the server.
-  // The backend still re-validates everything itself — this is purely
-  // for faster feedback, not a replacement for server-side checks.
   function validate() {
     const errors = {}
-
-    if (!username.trim()) {
-      errors.username = 'Username is required'
-    } else if (username.trim().length < 3) {
-      errors.username = 'Must be at least 3 characters'
-    }
-
-    if (!password) {
-      errors.password = 'Password is required'
-    } else if (password.length < 6) {
-      errors.password = 'Must be at least 6 characters'
-    }
-
-    if (mode === 'register' && password !== confirmPassword) {
-      errors.confirmPassword = 'Passwords do not match'
-    }
-
+    if (!username.trim()) errors.username = 'Username is required'
+    else if (username.trim().length < 3) errors.username = 'Must be at least 3 characters'
+    if (!password) errors.password = 'Password is required'
+    else if (password.length < 6) errors.password = 'Must be at least 6 characters'
+    if (mode === 'register' && password !== confirmPassword) errors.confirmPassword = 'Passwords do not match'
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -99,177 +65,111 @@ export default function AuthScreen({ onAuthenticated }) {
     }
   }
 
-  const vars = {
-    '--auth-bg': '#0B0E14',
-    '--auth-panel': '#10141C',
-    '--auth-panel-2': '#151A24',
-    '--auth-border': '#232A38',
-    '--auth-text': '#E4E6EB',
-    '--auth-text-dim': '#7C8394',
-    '--auth-amber': '#E8A33D',
-    '--auth-teal': '#4FD1C5',
-    '--auth-coral': '#E5484D',
-  }
-
   return (
-    <div
-      style={vars}
-      className="min-h-screen flex bg-[var(--auth-bg)] text-[var(--auth-text)]"
-    >
-      <style>{`
-        @media (prefers-reduced-motion: no-preference) {
-          @keyframes auth-drift-1 {
-            0%, 100% { transform: translate(0, 0); }
-            50% { transform: translate(6px, -5px); }
-          }
-          @keyframes auth-drift-2 {
-            0%, 100% { transform: translate(0, 0); }
-            50% { transform: translate(-5px, 6px); }
-          }
-          @keyframes auth-blink {
-            0%, 45% { opacity: 1; }
-            50%, 95% { opacity: 0; }
-            100% { opacity: 1; }
-          }
-          @keyframes auth-fade-up {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          @keyframes auth-fade-in {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
-          .auth-cursor-1 { animation: auth-drift-1 4.5s ease-in-out infinite; }
-          .auth-cursor-2 { animation: auth-drift-2 5.5s ease-in-out infinite; }
-          .auth-blink-caret { animation: auth-blink 1.1s step-end infinite; }
-          .auth-panel-enter { animation: auth-fade-up 0.5s ease-out both; }
-          .auth-form-enter { animation: auth-fade-up 0.5s ease-out 0.1s both; }
-          .auth-mode-fade { animation: auth-fade-in 0.25s ease-out both; }
-        }
-        .auth-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
-        .auth-input {
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-        .auth-input:focus {
-          box-shadow: 0 0 0 2px var(--auth-amber);
-        }
-        .auth-submit-btn {
-          transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
-        }
-        .auth-submit-btn:hover:not(:disabled) {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 14px -4px var(--auth-amber);
-        }
-        .auth-submit-btn:active:not(:disabled) {
-          transform: translateY(0);
-        }
-      `}</style>
-
-      {/* Left: live product preview - hidden on small screens */}
-      <div className="auth-panel-enter hidden lg:flex flex-col justify-center flex-1 px-16 py-12 border-r border-[var(--auth-border)]">
-        <div
-          className="w-full max-w-lg rounded-xl border overflow-hidden"
-          style={{ borderColor: 'var(--auth-border)', background: 'var(--auth-panel)' }}
-        >
-          {/* mini panel header, echoing the real app's split-screen bars */}
-          <div
-            className="flex text-xs auth-mono border-b"
-            style={{ borderColor: 'var(--auth-border)' }}
-          >
-            <div className="flex-1 px-3 py-2 text-[var(--auth-text-dim)]">Whiteboard</div>
-            <div
-              className="flex-1 px-3 py-2 text-[var(--auth-text-dim)] border-l"
-              style={{ borderColor: 'var(--auth-border)' }}
-            >
-              Code
-            </div>
-          </div>
-
-          <div className="flex h-64 relative">
-            {/* mini whiteboard half */}
-            <div className="flex-1 bg-white relative overflow-hidden">
-              <svg viewBox="0 0 200 160" className="w-full h-full">
-                <rect x="24" y="24" width="70" height="46" rx="2" fill="none" stroke="#E8A33D" strokeWidth="2.5" />
-                <line x1="30" y1="110" x2="120" y2="95" stroke="#4FD1C5" strokeWidth="2.5" strokeLinecap="round" />
-                <line x1="120" y1="95" x2="150" y2="130" stroke="#4FD1C5" strokeWidth="2.5" strokeLinecap="round" />
-                <text x="24" y="140" fontFamily="JetBrains Mono, monospace" fontSize="11" fill="#232A38">merge()</text>
-              </svg>
-              <div
-                className="auth-cursor-1 absolute"
-                style={{ left: '60%', top: '30%' }}
-                aria-hidden="true"
-              >
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full" style={{ background: 'var(--auth-teal)' }} />
-                  <span
-                    className="auth-mono text-[10px] px-1.5 py-0.5 rounded"
-                    style={{ background: 'var(--auth-teal)', color: '#04342C' }}
-                  >
-                    Alex
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* mini code half */}
-            <div
-              className="flex-1 border-l px-3 py-3 auth-mono text-[11px] leading-5 relative overflow-hidden"
-              style={{ borderColor: 'var(--auth-border)', background: 'var(--auth-panel-2)' }}
-            >
-              <div><span style={{ color: 'var(--auth-teal)' }}>function</span> <span style={{ color: 'var(--auth-text)' }}>merge</span>(a, b) {'{'}</div>
-              <div className="pl-3" style={{ color: 'var(--auth-text-dim)' }}>// fast-forward merge</div>
-              <div className="pl-3"><span style={{ color: 'var(--auth-teal)' }}>return</span> <span style={{ color: 'var(--auth-amber)' }}>[...a, ...b]</span></div>
-              <div>{'}'}</div>
-              <div
-                className="auth-cursor-2 absolute"
-                style={{ left: '40%', top: '58%' }}
-                aria-hidden="true"
-              >
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full" style={{ background: 'var(--auth-amber)' }} />
-                  <span
-                    className="auth-mono text-[10px] px-1.5 py-0.5 rounded"
-                    style={{ background: 'var(--auth-amber)', color: '#412402' }}
-                  >
-                    Priya
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <p className="auth-mono text-lg mt-8" style={{ color: 'var(--auth-text)' }}>
-          <span style={{ color: 'var(--auth-teal)' }}>// </span>
-          real-time, together
-          <span className="auth-blink-caret" style={{ color: 'var(--auth-amber)' }}>▍</span>
-        </p>
-        <p className="text-sm mt-2" style={{ color: 'var(--auth-text-dim)' }}>
-          Draw, write code, and see every change the instant it happens.
-        </p>
+    <div className="min-h-screen flex bg-bg text-text relative overflow-hidden font-sans">
+      {/* 3D Animated Background Elements */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden flex justify-center items-center">
+        <motion.div
+          animate={{ rotate: 360, scale: [1, 1.2, 1] }}
+          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+          className="absolute w-[800px] h-[800px] bg-accent/10 rounded-full blur-[120px] -top-1/4 -left-1/4"
+        />
+        <motion.div
+          animate={{ rotate: -360, scale: [1, 1.5, 1] }}
+          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+          className="absolute w-[600px] h-[600px] bg-mauve/10 rounded-full blur-[100px] bottom-0 right-0"
+        />
       </div>
 
-      {/* Right: the actual form */}
-      <div className="auth-form-enter flex-1 flex items-center justify-center px-6 py-12">
-        <form onSubmit={submit} className="w-full max-w-sm flex flex-col gap-5">
-          <div>
-            <h1 className="auth-mono text-2xl font-bold" style={{ color: 'var(--auth-text)' }}>
+      {/* Left: Floating 3D Preview Panel */}
+      <motion.div
+        initial={{ opacity: 0, x: -50 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="hidden lg:flex flex-col justify-center flex-1 px-16 py-12 relative z-10 perspective-[1000px]"
+      >
+        <motion.div
+          animate={{
+            rotateY: [5, -5, 5],
+            rotateX: [2, -2, 2],
+            y: [-10, 10, -10]
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="w-full max-w-lg rounded-2xl border border-border/50 bg-bg-panel/60 backdrop-blur-xl shadow-2xl overflow-hidden shadow-black/40"
+        >
+          <div className="flex text-xs font-mono border-b border-border/50 bg-bg-deep/50">
+            <div className="flex-1 px-4 py-3 text-text-dim">Whiteboard</div>
+            <div className="flex-1 px-4 py-3 text-text-dim border-l border-border/50">Code</div>
+          </div>
+          <div className="flex h-72 relative">
+            <div className="flex-1 bg-white/5 relative overflow-hidden p-4">
+              <svg viewBox="0 0 200 160" className="w-full h-full opacity-80">
+                <rect x="24" y="24" width="70" height="46" rx="6" fill="none" stroke="var(--color-peach)" strokeWidth="2.5" />
+                <line x1="30" y1="110" x2="120" y2="95" stroke="var(--color-sky)" strokeWidth="2.5" strokeLinecap="round" />
+                <line x1="120" y1="95" x2="150" y2="130" stroke="var(--color-sky)" strokeWidth="2.5" strokeLinecap="round" />
+              </svg>
+              <motion.div
+                animate={{ x: [0, 40, 0], y: [0, -30, 0] }}
+                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute left-[30%] top-[40%]"
+              >
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-sky shadow-[0_0_8px_var(--color-sky)]" />
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-sky/20 text-sky border border-sky/30">Alex</span>
+                </div>
+              </motion.div>
+            </div>
+            <div className="flex-1 border-l border-border/50 px-4 py-4 font-mono text-[12px] leading-6 relative overflow-hidden bg-bg-deep/30">
+              <div><span className="text-mauve">function</span> <span className="text-text">merge</span>(a, b) {'{'}</div>
+              <div className="pl-4 text-text-dim italic">// fast-forward merge</div>
+              <div className="pl-4"><span className="text-mauve">return</span> <span className="text-peach">[...a, ...b]</span></div>
+              <div>{'}'}</div>
+              <motion.div
+                animate={{ x: [0, -20, 0], y: [0, 20, 0] }}
+                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute left-[50%] top-[60%]"
+              >
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-peach shadow-[0_0_8px_var(--color-peach)]" />
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-peach/20 text-peach border border-peach/30">Priya</span>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
+          <p className="text-2xl mt-12 font-semibold text-text tracking-tight">
+            Real-time, together
+          </p>
+          <p className="text-base mt-3 text-text-dim max-w-sm leading-relaxed">
+            Draw, write code, and see every change the instant it happens.
+          </p>
+        </motion.div>
+      </motion.div>
+
+      {/* Right: Modern Auth Form */}
+      <div className="flex-1 flex items-center justify-center px-6 py-12 relative z-10">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="w-full max-w-md bg-bg-panel/40 backdrop-blur-2xl border border-border/50 rounded-3xl p-8 shadow-2xl"
+        >
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold bg-gradient-to-br from-text to-text-dim bg-clip-text text-transparent">
               SyncSpace
             </h1>
-            <p
-              key={mode}
-              className="auth-mono text-xs mt-1 auth-mode-fade"
-              style={{ color: 'var(--auth-text-dim)' }}
-            >
-              {mode === 'login' ? '// sign in to your workspace' : '// create your workspace'}
+            <p className="text-sm mt-2 text-text-dim">
+              {mode === 'login' ? 'Sign in to your workspace' : 'Create your workspace'}
             </p>
           </div>
 
-          {/* segmented mode switch */}
-          <div
-            className="flex gap-1 p-1 rounded-lg border"
-            style={{ borderColor: 'var(--auth-border)', background: 'var(--auth-panel)' }}
-          >
+          <div className="flex gap-2 p-1.5 rounded-xl bg-bg-deep/50 border border-border/50 mb-6">
             {['login', 'register'].map((m) => (
               <button
                 key={m}
@@ -280,126 +180,100 @@ export default function AuthScreen({ onAuthenticated }) {
                   setFieldErrors({})
                   setConfirmPassword('')
                 }}
-                className="flex-1 py-2 rounded-md text-sm font-medium auth-mono cursor-pointer transition-colors"
-                style={
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 ${
                   mode === m
-                    ? { background: 'var(--auth-amber)', color: '#412402' }
-                    : { background: 'transparent', color: 'var(--auth-text-dim)' }
-                }
+                    ? 'bg-accent text-bg-deep shadow-[0_0_15px_rgba(137,180,250,0.3)]'
+                    : 'text-text-dim hover:text-text hover:bg-bg-panel/50'
+                }`}
               >
                 {m === 'login' ? 'Log in' : 'Register'}
               </button>
             ))}
           </div>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="auth-mono text-xs" style={{ color: 'var(--auth-text-dim)' }}>
-              // username
-            </span>
-            <input
-              value={username}
-              onChange={(e) => {
-                setUsername(e.target.value)
-                if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: '' }))
-              }}
-              placeholder="Enter Your Username..."
-              autoFocus
-              className="auth-mono auth-input rounded-md px-3 py-2.5 text-sm border outline-none"
-              style={{
-                background: 'var(--auth-panel)',
-                borderColor: fieldErrors.username ? 'var(--auth-coral)' : 'var(--auth-border)',
-                color: 'var(--auth-text)',
-              }}
-            />
-            {fieldErrors.username && (
-              <span className="auth-mono text-xs" style={{ color: 'var(--auth-coral)' }}>
-                {fieldErrors.username}
-              </span>
-            )}
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="auth-mono text-xs" style={{ color: 'var(--auth-text-dim)' }}>
-              // password
-            </span>
-            <div className="relative">
+          <form onSubmit={submit} className="flex flex-col gap-5">
+            <label className="flex flex-col gap-2">
+              <span className="text-xs font-medium text-text-dim ml-1">Username</span>
               <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
+                value={username}
                 onChange={(e) => {
-                  setPassword(e.target.value)
-                  if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }))
-                  if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }))
+                  setUsername(e.target.value)
+                  if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: '' }))
                 }}
-                placeholder="At least 6 characters"
-                className="auth-mono auth-input rounded-md pl-3 pr-10 py-2.5 text-sm border outline-none w-full"
-                style={{
-                  background: 'var(--auth-panel)',
-                  borderColor: fieldErrors.password ? 'var(--auth-coral)' : 'var(--auth-border)',
-                  color: 'var(--auth-text)',
-                }}
+                placeholder="Enter Your Username"
+                autoFocus
+                className={`bg-bg-deep/50 rounded-xl px-4 py-3 text-sm border outline-none transition-all duration-300 ${
+                  fieldErrors.username ? 'border-accent-2 focus:border-accent-2' : 'border-border/50 focus:border-accent focus:bg-bg-deep'
+                }`}
               />
-              <PasswordToggleButton
-                visible={showPassword}
-                onClick={() => setShowPassword((v) => !v)}
-              />
-            </div>
-            {fieldErrors.password && (
-              <span className="auth-mono text-xs" style={{ color: 'var(--auth-coral)' }}>
-                {fieldErrors.password}
-              </span>
-            )}
-          </label>
+              {fieldErrors.username && <span className="text-xs text-accent-2 ml-1">{fieldErrors.username}</span>}
+            </label>
 
-          {mode === 'register' && (
-            <label className="flex flex-col gap-1.5">
-              <span className="auth-mono text-xs" style={{ color: 'var(--auth-text-dim)' }}>
-                // confirm password
-              </span>
+            <label className="flex flex-col gap-2">
+              <span className="text-xs font-medium text-text-dim ml-1">Password</span>
               <div className="relative">
                 <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={confirmPassword}
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
                   onChange={(e) => {
-                    setConfirmPassword(e.target.value)
+                    setPassword(e.target.value)
+                    if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }))
                     if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }))
                   }}
-                  placeholder="Type your password again"
-                  className="auth-mono auth-input rounded-md pl-3 pr-10 py-2.5 text-sm border outline-none w-full"
-                  style={{
-                    background: 'var(--auth-panel)',
-                    borderColor: fieldErrors.confirmPassword ? 'var(--auth-coral)' : 'var(--auth-border)',
-                    color: 'var(--auth-text)',
-                  }}
+                  placeholder="At least 6 characters"
+                  className={`w-full bg-bg-deep/50 rounded-xl pl-4 pr-12 py-3 text-sm border outline-none transition-all duration-300 ${
+                    fieldErrors.password ? 'border-accent-2 focus:border-accent-2' : 'border-border/50 focus:border-accent focus:bg-bg-deep'
+                  }`}
                 />
-                <PasswordToggleButton
-                  visible={showConfirmPassword}
-                  onClick={() => setShowConfirmPassword((v) => !v)}
-                />
+                <PasswordToggleButton visible={showPassword} onClick={() => setShowPassword((v) => !v)} />
               </div>
-              {fieldErrors.confirmPassword && (
-                <span className="auth-mono text-xs" style={{ color: 'var(--auth-coral)' }}>
-                  {fieldErrors.confirmPassword}
-                </span>
-              )}
+              {fieldErrors.password && <span className="text-xs text-accent-2 ml-1">{fieldErrors.password}</span>}
             </label>
-          )}
 
-          {error && (
-            <p className="auth-mono text-xs" style={{ color: 'var(--auth-coral)' }}>
-              ✕ {error}
-            </p>
-          )}
+            {mode === 'register' && (
+              <motion.label
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex flex-col gap-2"
+              >
+                <span className="text-xs font-medium text-text-dim ml-1">Confirm Password</span>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value)
+                      if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }))
+                    }}
+                    placeholder="Type your password again"
+                    className={`w-full bg-bg-deep/50 rounded-xl pl-4 pr-12 py-3 text-sm border outline-none transition-all duration-300 ${
+                      fieldErrors.confirmPassword ? 'border-accent-2 focus:border-accent-2' : 'border-border/50 focus:border-accent focus:bg-bg-deep'
+                    }`}
+                  />
+                  <PasswordToggleButton visible={showConfirmPassword} onClick={() => setShowConfirmPassword((v) => !v)} />
+                </div>
+                {fieldErrors.confirmPassword && <span className="text-xs text-accent-2 ml-1">{fieldErrors.confirmPassword}</span>}
+              </motion.label>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="auth-submit-btn rounded-md py-3 font-semibold text-sm cursor-pointer disabled:opacity-50"
-            style={{ background: 'var(--auth-amber)', color: '#412402' }}
-          >
-            {loading ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}
-          </button>
-        </form>
+            {error && (
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs text-accent-2 text-center mt-2 bg-accent-2/10 py-2 rounded-lg border border-accent-2/20">
+                {error}
+              </motion.p>
+            )}
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              type="submit"
+              disabled={loading}
+              className="mt-4 bg-gradient-to-r from-accent to-mauve text-bg-deep rounded-xl py-3.5 font-bold text-sm cursor-pointer shadow-[0_4px_20px_rgba(137,180,250,0.4)] disabled:opacity-50 transition-all"
+            >
+              {loading ? 'Please wait…' : mode === 'login' ? 'Log In' : 'Create Account'}
+            </motion.button>
+          </form>
+        </motion.div>
       </div>
     </div>
   )
