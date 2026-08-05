@@ -184,6 +184,8 @@ const ImageShape = forwardRef(function ImageShape({ src, ...props }, ref) {
 export default function Whiteboard({ shapes, awareness }) {
 const [, forceRender] = useReducer((x) => x + 1, 0);
   const [tool, setTool] = useState("select");
+  const [selectedEmoji, setSelectedEmoji] = useState("😀");
+const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [background, setBackground] = useState("white");
   
