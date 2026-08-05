@@ -19,15 +19,19 @@ export default function CodeEditor({ codeText, awareness, theme = 'dark', setSel
   const [output, setOutput] = useState("");
  const [editorSettings, setEditorSettings] = useState(() => {
   const saved = localStorage.getItem("editorSettings");
-  return saved
-    ? JSON.parse(saved)
-    : {
-        theme:theme === 'dark' ? 'vs-dark' : 'vs',
-        fontSize: 14,
-        wordWrap: "off",
-        minimap: false,
-        lineNumbers: "on",
-      };
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    // Migrate invalid 'vs-light' theme to correct 'vs' value
+    if (parsed.theme === "vs-light") parsed.theme = "vs";
+    return parsed;
+  }
+  return {
+    theme: theme === 'dark' ? 'vs-dark' : 'vs',
+    fontSize: 14,
+    wordWrap: "off",
+    minimap: false,
+    lineNumbers: "on",
+  };
 });
 
 // This useEffect hook saves the editor settings to localStorage whenever they change, ensuring that user preferences persist across sessions.
@@ -237,7 +241,7 @@ useEffect(() => {
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       
       {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-bg-panel/60 backdrop-blur-xl border-b border-border/50 flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-bg-panel/60 backdrop-blur-xl border-b border-border/50 flex-shrink-0 z-10">
         <div className="flex flex-col">
           <span className="font-medium text-sm text-text">
             {currentFile ? currentFile.name : "Code Editor"}

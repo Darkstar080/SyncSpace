@@ -15,7 +15,6 @@ export default function NewFileModal({ open, onClose, onCreate }) {
   const [fileName, setFileName] = useState("main");
   const [language, setLanguage] = useState("python");
 
-  if (!open) return null;
 
   const handleCreate = () => {
     onCreate({ fileName, language });

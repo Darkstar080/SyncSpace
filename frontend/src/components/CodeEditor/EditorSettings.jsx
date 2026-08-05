@@ -29,7 +29,7 @@ export default function EditorSettings({ open, editorSettings, setEditorSettings
               className="bg-bg-deep border border-border/50 text-text text-xs rounded-lg px-2 py-1 outline-none focus:border-accent/50"
             >
               <option value="vs-dark">VS Dark</option>
-              <option value="vs-light">VS Light</option>
+              <option value="vs">VS Light</option>
               <option value="hc-black">High Contrast</option>
             </select>
           </div>

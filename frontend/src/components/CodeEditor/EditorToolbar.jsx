@@ -3,13 +3,16 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import EditorSettings from "./EditorSettings";
 
-const EditorToolbar = ({ onRun, onSave, onNewFile, onOpenFile, onOpenSettings, editorSettings, setEditorSettings }) => {
+const EditorToolbar = ({ onRun, onSave, onNewFile, onOpenFile, editorSettings, setEditorSettings }) => {
   const [showFileMenu, setShowFileMenu] = useState(false);
   const fileMenuRef = useRef(null);
   const [showSettings, setShowSettings] = useState(false);
   const settingsRef = useRef(null);
 
-  // Close both dropdowns when clicking outside their respective containers
+  // Close dropdowns when clicking outside their respective containers.
+  // Uses 'click' instead of 'mousedown' so native <select> dropdowns
+  // work properly (the browser renders their option list outside the DOM,
+  // so mousedown targets fail the contains() check and close the panel).
   useEffect(() => {
     function handleClickOutside(e) {
       if (fileMenuRef.current && !fileMenuRef.current.contains(e.target)) {
@@ -19,10 +22,8 @@ const EditorToolbar = ({ onRun, onSave, onNewFile, onOpenFile, onOpenSettings, e
         setShowSettings(false);
       }
     }
-    // Use 'mousedown' but add a small delay so the toggle button's onClick
-    // fires before this closes the panel (avoids instant close on button click)
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
   const menuItemClass =
@@ -35,7 +36,7 @@ const EditorToolbar = ({ onRun, onSave, onNewFile, onOpenFile, onOpenSettings, e
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
-          onClick={() => setShowFileMenu((p) => !p)}
+          onClick={() => { setShowFileMenu((p) => !p); setShowSettings(false); }}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-bg-deep/60 text-text-dim hover:text-text text-xs font-medium transition-colors"
         >
           <FolderOpen size={14} className="text-amber-400" />
@@ -94,7 +95,7 @@ const EditorToolbar = ({ onRun, onSave, onNewFile, onOpenFile, onOpenSettings, e
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
-          onClick={() => setShowSettings((p) => !p)}
+          onClick={() => { setShowSettings((p) => !p); setShowFileMenu(false); }}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-bg-deep/60 text-text-dim hover:text-text text-xs font-medium transition-colors"
         >
           <Settings size={14} className="text-text-dim" />
