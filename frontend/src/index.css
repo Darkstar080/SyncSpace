@@ -1,9 +1,45 @@
-:root {
-  color-scheme: dark;
+@import "tailwindcss";
+
+/* Design tokens — Tailwind v4 auto-generates utility classes from these
+   (e.g. --color-accent below becomes usable as `bg-accent`, `text-accent`,
+   `border-accent`, etc.) This keeps our dark dev-tool theme consistent
+   across every component instead of hardcoding hex values everywhere. */
+@theme {
+  --color-bg: #1e1e2e;
+  --color-bg-panel: #181825;
+  --color-bg-deep: #11111b;
+  --color-border: #313244;
+  --color-text: #cdd6f4;
+  --color-text-dim: #9399b2;
+  --color-accent: #89b4fa;
+  --color-accent-2: #f38ba8;
+  --color-success: #a6e3a1;
+  --color-mauve: #cba6f7;
+  --color-peach: #fab387;
+  --color-sky: #89dceb;
 }
 
-* {
-  box-sizing: border-box;
+/* Light mode — Catppuccin Latte, the official light counterpart to the
+   Mocha palette used above. Same design family, not an arbitrary/guessed
+   pairing. Toggled by setting data-theme="light" on <html> (see
+   lib/theme.js). Overriding the same custom property names means every
+   component using bg-bg-panel/text-text-dim/etc. picks this up
+   automatically — no component-level changes needed. */
+[data-theme='light'] {
+  --color-bg: #eff1f5;
+  --color-bg-panel: #e6e9ef;
+  --color-bg-deep: #dce0e8;
+  --color-border: #bcc0cc;
+  --color-text: #4c4f69;
+  --color-text-dim: #6c6f85;
+  --color-accent: #1e66f5;
+  --color-accent-2: #d20f39;
+  --color-success: #40a02b;
+  --color-mauve: #8839ef;
+  --color-peach: #fe640b;
+  --color-sky: #04a5e5;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
 }
 
 html, body, #root {
@@ -13,5 +49,5 @@ html, body, #root {
 }
 
 body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }

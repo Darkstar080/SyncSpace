@@ -5,17 +5,24 @@
   "type": "module",
   "main": "src/server.js",
   "scripts": {
-    "dev": "node src/server.js",
-    "test": "node test-sync.js"
+    "dev": "node --env-file-if-exists=.env src/server.js",
+    "test": "node --env-file-if-exists=.env test-sync.js",
+    "test:reconnect": "node --env-file-if-exists=.env test-reconnect.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google/genai": "^2.15.0",
+    "axios": "^1.18.1",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "lib0": "^0.2.117",
+    "mongodb": "^7.5.0",
     "ws": "^8.21.1",
+    "y-mongodb-provider": "^0.2.1",
     "y-protocols": "^1.0.7",
     "yjs": "^13.6.31"
   },

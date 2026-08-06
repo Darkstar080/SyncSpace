@@ -1,22 +1,67 @@
 import { useEffect, useRef, useState } from 'react'
+import AuthScreen from './components/AuthScreen'
 import JoinScreen from './components/JoinScreen'
 import Whiteboard from './components/Whiteboard'
 import CodeEditor from './components/CodeEditor'
+import ConnectionBanner from './components/ConnectionBanner'
+import ReplayModal from './components/ReplayModal'
 import { createRoomConnection, destroyRoomConnection, randomColor } from './lib/yjs'
-import './App.css'
+import { getToken, getUsername, clearSession } from './lib/api'
+import { getInitialTheme, applyToDocument, setExplicitTheme, watchSystemTheme, hasExplicitPreference } from './lib/theme'
+import ChatButton from './components/Chat/ChatButton'
+import ChatWindow from './components/Chat/ChatWindow'
+import { AIButton, AIPanel } from "./components/AIAssistant";
+
 
 export default function App() {
+  const [username, setUsername] = useState(getUsername())
   const [connection, setConnection] = useState(null)
   const [status, setStatus] = useState('disconnected')
   const [users, setUsers] = useState([])
+  const [theme, setTheme] = useState(() => getInitialTheme())
+  const [currentPin, setCurrentPin] = useState(null)
+  const [showReplay, setShowReplay] = useState(false)
   const connectionRef = useRef(null)
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [showSelectionAI, setShowSelectionAI] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isAIOpen, setIsAIOpen] = useState(false);
+  const [selectedCode, setSelectedCode] = useState("");
+  const [selectionPosition, setSelectionPosition] = useState({
+  x: 0,
+  y: 0,
+});
+const [aiPrompt, setAiPrompt] = useState("");
 
-  function handleJoin({ name, room }) {
-    const user = { name, color: randomColor() }
-    const conn = createRoomConnection(room, user)
+  useEffect(() => {
+    applyToDocument(theme)
+  }, [theme])
+
+  // Follow the OS's light/dark setting live — but ONLY if the user has
+  // never explicitly toggled the theme themselves. An explicit choice
+  // always wins and is never silently overridden by a system change.
+  useEffect(() => {
+    return watchSystemTheme((systemTheme) => {
+      if (!hasExplicitPreference()) {
+        setTheme(systemTheme)
+      }
+    })
+  }, [])
+
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setExplicitTheme(next) // persists the explicit choice
+    setTheme(next)
+  }
+
+  function handleJoin({ room, pin }) {
+    const user = { name: username, color: randomColor() }
+    const token = getToken()
+    const conn = createRoomConnection(room, user, { token, pin })
     conn.roomName = room
     connectionRef.current = conn
     setConnection(conn)
+    setCurrentPin(pin) // needed later so Replay can authenticate its own requests
 
     conn.provider.on('status', ({ status }) => setStatus(status))
 
@@ -28,27 +73,87 @@ export default function App() {
     updateUsers()
   }
 
+  function handleLeaveRoom() {
+    destroyRoomConnection(connectionRef.current)
+    connectionRef.current = null
+    setConnection(null)
+    setUsers([])
+    setStatus('disconnected')
+  }
+
+  function handleSessionExpired() {
+    clearSession()
+    handleLeaveRoom()
+    setUsername(null)
+  }
+
   useEffect(() => {
     return () => destroyRoomConnection(connectionRef.current)
   }, [])
 
+  if (!username) {
+    return <AuthScreen onAuthenticated={(name) => setUsername(name)} />
+  }
+
   if (!connection) {
-    return <JoinScreen onJoin={handleJoin} />
+    return (
+      <JoinScreen
+        onJoin={handleJoin}
+        onLogout={() => {
+          setUsername(null)
+        }}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+    )
   }
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="topbar-left">
-          <span className="brand">SyncSpace</span>
-          <span className="room-badge">Room: {connection.roomName}</span>
+    <div className="h-screen flex flex-col">
+      <header className="h-13 flex-shrink-0 flex items-center justify-between px-5 bg-bg-panel border-b border-border">
+        <div className="flex items-center gap-3">
+          <span className="font-bold tracking-tight text-text">SyncSpace</span>
+          <span className="text-xs text-text-dim bg-bg-deep px-2.5 py-1 rounded-full border border-border">
+            Room: {connection.roomName}
+          </span>
+          <button
+  onClick={handleLeaveRoom}
+  className="px-2.5 py-1 rounded-md text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
+>
+  Leave room
+</button>
         </div>
-        <div className="topbar-right">
-          <span className={`status-dot ${status}`} />
-          <span className="status-label">{status}</span>
-          <div className="presence">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="text-xs text-text-dim border border-border rounded-full px-2.5 py-1 cursor-pointer hover:text-text"
+          >
+            {theme === 'dark' ? '☀' : '☾'}
+          </button>
+          <button
+            onClick={() => setShowReplay(true)}
+            className="text-xs text-text-dim border border-border rounded-full px-2.5 py-1 cursor-pointer hover:text-text"
+          >
+            History
+          </button>
+          <span
+            className={`w-2 h-2 rounded-full ${
+              status === 'connected'
+                ? 'bg-success shadow-[0_0_6px_var(--color-success)]'
+                : status === 'disconnected'
+                ? 'bg-accent-2'
+                : 'bg-text-dim'
+            }`}
+          />
+          <span className="text-xs text-text-dim capitalize">{status}</span>
+          <div className="flex gap-1.5 ml-2.5">
             {users.map((u, i) => (
-              <span key={i} className="presence-chip" style={{ background: u.color }}>
+              <span
+                key={i}
+                className="text-xs px-2.5 py-1 rounded-full text-bg-deep font-semibold"
+                style={{ background: u.color }}
+              >
                 {u.name}
               </span>
             ))}
@@ -56,10 +161,84 @@ export default function App() {
         </div>
       </header>
 
-      <main className="split">
-        <Whiteboard shapes={connection.shapes} awareness={connection.awareness} />
-        <CodeEditor codeText={connection.codeText} awareness={connection.awareness} />
+      <ConnectionBanner
+        status={status}
+        provider={connection.provider}
+        onSessionExpired={handleSessionExpired}
+      />
+
+      <main className="flex-1 flex min-h-0">
+        <div className="relative flex-1 min-w-0">
+          <Whiteboard
+            shapes={connection.shapes}
+            awareness={connection.awareness}
+          />
+
+         <AIPanel
+          isOpen={isAIOpen}
+          onClose={() => setIsAIOpen(false)}
+          aiPrompt={aiPrompt}
+          setAiPrompt={setAiPrompt}
+        />
+        </div>
+       <CodeEditor
+          codeText={connection.codeText}
+          awareness={connection.awareness}
+          theme={theme}
+          setSelectedCode={setSelectedCode}
+          setShowSelectionAI={setShowSelectionAI}
+          setSelectionPosition={setSelectionPosition}
+        />
       </main>
+
+{/* REPLAY FEATURE */}
+      {showReplay && (
+        <ReplayModal
+          roomId={connection.roomName}
+          pin={currentPin}
+          onClose={() => setShowReplay(false)}
+        />
+      )}
+
+      {/* AI SELECTION BUTTON */}
+      {showSelectionAI && (
+        <button
+          onClick={() => {
+            setAiPrompt(selectedCode);
+            setIsAIOpen(true);
+          }}
+          style={{
+            position: "fixed",
+            left: selectionPosition.x,
+            top: selectionPosition.y,
+          }}
+          className="z-50 px-2 py-1 rounded-md bg-violet-600 text-white text-xs shadow-lg hover:bg-violet-700"
+        >
+          ✨ Ask AI
+        </button>
+      )}
+
+      {/* FLOATING ACTION BUTTONS */}
+      <AIButton
+        onClick={() => setIsAIOpen(true)}
+      />
+
+      <ChatButton
+        onClick={() => {
+          setIsChatOpen(true);
+        }}
+      />
+      <ChatWindow
+        chatMessages={connection.chatMessages}
+        awareness={connection.awareness}
+        isOpen={isChatOpen}
+        isMinimized={isMinimized}
+        onMinimize={() => setIsMinimized((prev) => !prev)}
+        onClose={() => {
+          setIsChatOpen(false);
+          setIsMinimized(false);
+        }}
+      />
     </div>
   )
 }
