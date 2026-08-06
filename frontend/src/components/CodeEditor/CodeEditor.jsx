@@ -5,6 +5,7 @@ import EditorToolbar from "./EditorToolbar";
 import OutputPanel from "./OutputPanel";
 import NewFileModal from "./NewFileModal";
 import { saveFile } from "./saveFile";
+import WelcomeEditor from "./WelcomeEditor";
 
 
 export default function CodeEditor({ codeText, awareness, theme = 'dark', setSelectedCode, setShowSelectionAI,  setSelectionPosition,}) {
@@ -190,13 +191,14 @@ useEffect(() => {
             }
      // This function handles the "Run" button click event. It retrieves the current code from the editor, logs the selected language and code to the console, and opens the output panel. 
       async function handleRun() {
-         if (!currentFile) {
-        setIsOutputOpen(true);
-        setOutput("Please create a new file or open an existing file first.");
-        return;
-      }
+        if (!currentFile) {
+          setIsOutputOpen(true);
+          setOutput("Please create a new file or open an existing file first.");
+          return;
+        }
 
         const code = codeText.toString().trim();
+
         if (!code) {
           setIsOutputOpen(true);
           setOutput("The current file is empty.");
@@ -205,8 +207,6 @@ useEffect(() => {
 
         setIsOutputOpen(true);
 
-        console.log("Sending Language:", language);
-        console.log("Sending Code:", code);
         try {
           const response = await fetch("http://localhost:4000/run", {
             method: "POST",
@@ -221,14 +221,14 @@ useEffect(() => {
 
           const data = await response.json();
 
-          console.log("Response:", data);
           if (data.status === "success") {
-              setOutput(data.output);
-            } else {
-              setOutput(data.error || "Execution failed.");
-            }
+            setOutput(data.output);
+          } else {
+            setOutput(data.error || "Execution failed.");
+          }
         } catch (error) {
           console.error(error);
+          setOutput("Failed to connect to execution server.");
         }
       }
 
@@ -257,41 +257,29 @@ useEffect(() => {
           setEditorSettings={setEditorSettings}
         />
         </div>
-                <div className="relative flex-1 min-h-0">
-          <Editor
-  height="100%"
-  language={language}
-  theme={editorSettings.theme}
-  onMount={handleMount}
-  options={{
-    fontSize: editorSettings.fontSize,
-    wordWrap: editorSettings.wordWrap,
-    minimap: {
-      enabled: editorSettings.minimap,
-    },
-    lineNumbers: editorSettings.lineNumbers,
-  }}
-/>
-
-          {!currentFile && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-center text-text-dim">
-                <h2 className="text-2xl font-semibold text-text">
-                  Welcome to SyncSpace
-                </h2>
-
-                <p className="mt-3">
-                  ⚠️ Please create a new file or open an existing file before writing
-                  code.
-                </p>
-
-                <p className="mt-2">
-                  Use the <b>New File</b> or <b>Open File</b> option in the toolbar.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
+               <div className="relative flex-1 min-h-0 h-full overflow-hidden">
+  {currentFile ? (
+    <Editor
+      height="100%"
+      language={language}
+      theme={editorSettings.theme}
+      onMount={handleMount}
+      options={{
+        fontSize: editorSettings.fontSize,
+        wordWrap: editorSettings.wordWrap,
+        minimap: {
+          enabled: editorSettings.minimap,
+        },
+        lineNumbers: editorSettings.lineNumbers,
+      }}
+    />
+  ) : (
+    <WelcomeEditor
+      onNewFile={() => setShowNewFileModal(true)}
+      onOpenFile={handleOpenFileClick}
+    />
+  )}
+</div>
 
         <OutputPanel
           isOpen={isOutputOpen}
