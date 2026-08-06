@@ -49,10 +49,15 @@ export function randomColor() {
  *
  * @param {string} roomName
  * @param {{ name: string, color: string }} user
+ * @param {{ token: string, pin: string }} authParams - sent as WebSocket
+ *   connection query params; the server verifies both before allowing
+ *   the connection (see backend/src/server.js's upgrade handler)
  */
-export function createRoomConnection(roomName, user) {
+export function createRoomConnection(roomName, user, authParams) {
   const doc = new Y.Doc()
-  const provider = new WebsocketProvider(WS_URL, roomName, doc)
+  const provider = new WebsocketProvider(WS_URL, roomName, doc, {
+    params: { token: authParams.token, pin: authParams.pin },
+  })
 
   provider.awareness.setLocalStateField('user', user)
   provider.awareness.setLocalStateField('cursor', null)
@@ -63,6 +68,8 @@ export function createRoomConnection(roomName, user) {
     awareness: provider.awareness,
     shapes: doc.getArray('shapes'),
     codeText: doc.getText('code'),
+    // Chat
+    chatMessages: doc.getArray('chat'),
   }
 }
 
