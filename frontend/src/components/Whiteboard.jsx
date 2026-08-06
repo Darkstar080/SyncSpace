@@ -136,6 +136,14 @@ function WhiteboardBackground({ background, width, height }) {
 }
 
 const TOOLS = ["select", "pen", "eraser", "delete", "text"];
+const EMOJIS = [
+  "😀", "😁", "😂", "🤣", "😊", "😍", "😎", "🤔",
+  "😢", "😭", "😡", "❤️", "💙", "💚", "💛",
+  "👍", "👎", "👏", "🙌", "✌️", "🤝",
+  "⭐", "✨", "🔥", "💡", "🚀", "🎯",
+  "📌", "📍", "✅", "❌", "⚠️"
+];
+
 const ImageShape = forwardRef(function ImageShape({ src, ...props }, ref) {
   const [image, setImage] = useState(null);
 
