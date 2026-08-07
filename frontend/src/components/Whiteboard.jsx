@@ -1010,6 +1010,18 @@ const [showEmojiPicker, setShowEmojiPicker] = useState(false);
             onChange={handleImageInsert}
           />
           <button
+  className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
+  onClick={() => {
+    setShowEmojiPicker(!showEmojiPicker);
+    setShowPenPanel(false);
+    setShowShapePanel(false);
+    setShowTextPanel(false);
+  }}
+>
+  😀
+</button>
+
+          <button
             className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
             onClick={() => {
   imageInputRef.current?.click()
