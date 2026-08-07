@@ -13,6 +13,9 @@ export default function CodeEditor({ codeText, awareness, theme = 'dark', setSel
   const editorRef = useRef(null);
   const fileInputRef = useRef(null)
   const [language, setLanguage] = useState("python")
+  const [outputHeight, setOutputHeight] = useState(250);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
 
   const [isOutputOpen, setIsOutputOpen] = useState(false);
   const [showNewFileModal, setShowNewFileModal] = useState(false);
@@ -38,6 +41,30 @@ useEffect(() => {
     JSON.stringify(editorSettings)
   );
 }, [editorSettings]);
+
+useEffect(() => {
+  function handleMouseMove(e) {
+    if (!isDragging) return;
+
+    const newHeight = window.innerHeight - e.clientY;
+
+    if (newHeight > 120 && newHeight < 500) {
+      setOutputHeight(newHeight);
+    }
+  }
+
+  function handleMouseUp() {
+    setIsDragging(false);
+  }
+
+  window.addEventListener("mousemove", handleMouseMove);
+  window.addEventListener("mouseup", handleMouseUp);
+
+  return () => {
+    window.removeEventListener("mousemove", handleMouseMove);
+    window.removeEventListener("mouseup", handleMouseUp);
+  };
+}, [isDragging]);
 
 
 
@@ -147,7 +174,7 @@ useEffect(() => {
 
       setShowNewFileModal(false);
 
-      console.log("Created:", fileName);
+     
     }
 
     // This function triggers the hidden file input when the "Open File" button is clicked.
@@ -206,6 +233,8 @@ useEffect(() => {
         }
 
         setIsOutputOpen(true);
+        setIsRunning(true);
+        setOutput("");
 
         try {
           const response = await fetch("http://localhost:4000/run", {
@@ -222,16 +251,23 @@ useEffect(() => {
           const data = await response.json();
 
           if (data.status === "success") {
-            setOutput(data.output);
+            setOutput(
+              `${data.output}\n\n✓ Process finished successfully`
+            );
           } else {
-            setOutput(data.error || "Execution failed.");
+            setOutput(
+              `${data.error || "Execution failed."}\n\n✗ Process failed`
+            );
           }
         } catch (error) {
           console.error(error);
-          setOutput("Failed to connect to execution server.");
+          setOutput(
+            "Failed to connect to execution server.\n\n✗ Process failed"
+          );
+        } finally {
+          setIsRunning(false);
         }
       }
-
       
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -258,34 +294,45 @@ useEffect(() => {
         />
         </div>
                <div className="relative flex-1 min-h-0 h-full overflow-hidden">
-  {currentFile ? (
-    <Editor
-      height="100%"
-      language={language}
-      theme={editorSettings.theme}
-      onMount={handleMount}
-      options={{
-        fontSize: editorSettings.fontSize,
-        wordWrap: editorSettings.wordWrap,
-        minimap: {
-          enabled: editorSettings.minimap,
-        },
-        lineNumbers: editorSettings.lineNumbers,
-      }}
-    />
-  ) : (
-    <WelcomeEditor
-      onNewFile={() => setShowNewFileModal(true)}
-      onOpenFile={handleOpenFileClick}
-    />
-  )}
-</div>
+            {currentFile ? (
+              <Editor
+                height="100%"
+                language={language}
+                theme={editorSettings.theme}
+                onMount={handleMount}
+                options={{
+                  fontSize: editorSettings.fontSize,
+                  wordWrap: editorSettings.wordWrap,
+                  minimap: {
+                    enabled: editorSettings.minimap,
+                  },
+                        lineNumbers: editorSettings.lineNumbers,
+                      }}
+                    />
+                  ) : (
+                <WelcomeEditor
+                  onNewFile={() => setShowNewFileModal(true)}
+                  onOpenFile={handleOpenFileClick}
+                />
+              )}
+            </div>
+
+       <>
+          {isOutputOpen && (
+            <div
+              onMouseDown={() => setIsDragging(true)}
+              className="h-2 cursor-row-resize bg-gray-700 hover:bg-blue-500 transition"
+            />
+          )}
 
         <OutputPanel
           isOpen={isOutputOpen}
           output={output}
+          height={outputHeight}
           onClose={() => setIsOutputOpen(false)}
+          onClear={() => setOutput("")}
         />
+        </>
         <NewFileModal
           open={showNewFileModal}
           onClose={() => setShowNewFileModal(false)}

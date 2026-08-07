@@ -18,13 +18,13 @@ const EditorToolbar = ({ onRun,
 //this is a useEffect hook that adds an event listener to the document to handle clicks outside of the file menu. When a click occurs outside of the file menu, it sets the showFileMenu state to false, effectively closing the menu. The event listener is cleaned up when the component unmounts to prevent memory leaks.
   useEffect(() => {
   function handleClickOutside(e) {
-  console.log("Clicked:", e.target);
+  
 
   if (
     settingsMenuRef.current &&
     !settingsMenuRef.current.contains(e.target)
   ) {
-    console.log("Closing settings");
+   
     setShowSettings(false);
   }
 
