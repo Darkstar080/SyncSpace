@@ -1476,6 +1476,53 @@ const [showEmojiPicker, setShowEmojiPicker] = useState(false);
             )}
           </Layer>
         </Stage>
+        {showEmojiPicker && (
+  <div
+    style={{
+      position: "absolute",
+      top: 55,
+      left: 20,
+      width: 260,
+      background: "#ffffff",
+      border: "1px solid #ddd",
+      borderRadius: "12px",
+      padding: "12px",
+      boxShadow: "0 4px 15px rgba(0,0,0,0.15)",
+      zIndex: 1000,
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "6px",
+    }}
+  >
+    {EMOJIS.map((emoji) => (
+      <button
+        key={emoji}
+        onClick={() => {
+          setSelectedEmoji(emoji);
+          setShowEmojiPicker(false);
+          setTool("emoji");
+        }}
+        style={{
+          width: "38px",
+          height: "38px",
+          fontSize: "24px",
+          border: "none",
+          background: "transparent",
+          borderRadius: "8px",
+          cursor: "pointer",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "#f0f0f0";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
+        }}
+      >
+        {emoji}
+      </button>
+    ))}
+  </div>
+)}
 
         {showTextPanel && (
           <div
