@@ -9,6 +9,7 @@ const EditorToolbar = ({ onRun,
   onNewFile,
   onOpenFile,
   onOpenSettings,
+  onToggleExplorer,
   editorSettings,
   setEditorSettings, }) => {
   const [showFileMenu, setShowFileMenu] = useState(false);
@@ -81,9 +82,15 @@ const EditorToolbar = ({ onRun,
                     <span>Open File</span>
                   </button>
 
-                  <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-bg-deep text-text transition">
-                    <Folder size={18} />
-                    <span>Open Folder</span>
+                  <button
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        onToggleExplorer();
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-bg-deep text-text transition"
+                    >
+                      <Folder size={18} />
+                      <span>Open Folder</span>
                   </button>
                 </div>
                 

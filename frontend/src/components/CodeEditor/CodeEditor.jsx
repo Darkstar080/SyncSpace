@@ -6,6 +6,7 @@ import OutputPanel from "./OutputPanel";
 import NewFileModal from "./NewFileModal";
 import { saveFile } from "./saveFile";
 import WelcomeEditor from "./WelcomeEditor";
+import FileExplorer from "./FileExplorer";
 
 
 export default function CodeEditor({ codeText, awareness, theme = 'dark', setSelectedCode, setShowSelectionAI,  setSelectionPosition,}) {
@@ -16,6 +17,7 @@ export default function CodeEditor({ codeText, awareness, theme = 'dark', setSel
   const [outputHeight, setOutputHeight] = useState(250);
   const [isDragging, setIsDragging] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [showFileExplorer, setShowFileExplorer] = useState(false);
 
   const [isOutputOpen, setIsOutputOpen] = useState(false);
   const [showNewFileModal, setShowNewFileModal] = useState(false);
@@ -284,16 +286,19 @@ useEffect(() => {
             </span>
           )}
         </div>
-        <EditorToolbar
-          onRun={handleRun}
-          onSave={handleSave}
-          onNewFile={() => setShowNewFileModal(true)}
-          onOpenFile={handleOpenFileClick}
-          editorSettings={editorSettings}
-          setEditorSettings={setEditorSettings}
-        />
+              <EditorToolbar
+                onRun={handleRun}
+                onSave={handleSave}
+                onNewFile={() => setShowNewFileModal(true)}
+                onOpenFile={handleOpenFileClick}
+                onToggleExplorer={() => setShowFileExplorer((prev) => !prev)}
+                editorSettings={editorSettings}
+                setEditorSettings={setEditorSettings}
+              />
         </div>
-               <div className="relative flex-1 min-h-0 h-full overflow-hidden">
+              <div className="relative flex-1 min-h-0 h-full overflow-hidden flex">
+                {showFileExplorer && <FileExplorer />}
+            <div className="relative flex-1 min-w-0 h-full overflow-hidden">
             {currentFile ? (
               <Editor
                 height="100%"
@@ -316,8 +321,9 @@ useEffect(() => {
                 />
               )}
             </div>
-
+            </div>
        <>
+       
           {isOutputOpen && (
             <div
               onMouseDown={() => setIsDragging(true)}
