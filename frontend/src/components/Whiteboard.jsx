@@ -647,6 +647,27 @@ const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     if (textBox) return;
 
     const pos = pointerPos();
+
+    if (tool === "emoji") {
+  if (!pos) return;
+
+  const id = `${awareness.clientID}-${Date.now()}`;
+  const map = new Y.Map();
+
+  map.set("id", id);
+  map.set("type", "emoji");
+  map.set("emoji", selectedEmoji);
+  map.set("x", pos.x);
+  map.set("y", pos.y);
+  map.set("fontSize", 40);
+  map.set("rotation", 0);
+
+  shapes.push([map]);
+
+  setSelectedId(id);
+  return;
+}
+
     if (tool === "text") {
       setTextBox({
         x: pos.x,
