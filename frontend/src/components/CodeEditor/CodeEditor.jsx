@@ -13,6 +13,7 @@ export default function CodeEditor({ codeText, awareness, theme = 'dark', setSel
   const bindingRef = useRef(null)
   const editorRef = useRef(null);
   const fileInputRef = useRef(null)
+  const folderInputRef = useRef(null)
   const [language, setLanguage] = useState("python")
   const [outputHeight, setOutputHeight] = useState(250);
   const [isDragging, setIsDragging] = useState(false);
@@ -210,7 +211,17 @@ useEffect(() => {
         event.target.value = "";
       }
 
-           function handleSave() {
+      function handleFolderSelect(event) {
+  const files = Array.from(event.target.files);
+
+  if (!files.length) return;
+
+  console.log("Selected folder files:", files);
+
+  event.target.value = "";
+}
+
+          function handleSave() {
               if (!currentFile) {
                 alert("Please create or open a file first.");
                 return;
@@ -297,7 +308,13 @@ useEffect(() => {
               />
         </div>
               <div className="relative flex-1 min-h-0 h-full overflow-hidden flex">
-                {showFileExplorer && <FileExplorer />}
+                {showFileExplorer && (
+                        <FileExplorer
+                          onNewFile={() => setShowNewFileModal(true)}
+                          onOpenFile={handleOpenFileClick}
+                          onOpenFolder={() => folderInputRef.current?.click()}
+                        />
+                      )}
             <div className="relative flex-1 min-w-0 h-full overflow-hidden">
             {currentFile ? (
               <Editor
@@ -351,6 +368,14 @@ useEffect(() => {
           accept=".js,.ts,.py,.java,.cpp,.c,.txt"
           onChange={handleFileSelect}
         />
+        <input
+  type="file"
+  ref={folderInputRef}
+  className="hidden"
+  webkitdirectory="true"
+  directory="true"
+  onChange={handleFolderSelect}
+/>
     </div>
   )
 }

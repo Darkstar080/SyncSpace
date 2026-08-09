@@ -1,7 +1,11 @@
 import { Folder, File, ChevronRight, ChevronDown } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 
-export default function FileExplorer() {
+export default function FileExplorer({
+  onNewFile,
+  onOpenFile,
+  onOpenFolder,
+}) {
   const [expanded, setExpanded] = useState(true);
   const [width, setWidth] = useState(224);
   const isDragging = useRef(false);
@@ -46,6 +50,33 @@ export default function FileExplorer() {
           <span className="text-xs font-semibold text-text">
             EXPLORER
           </span>
+        </div>
+
+        {/* File Actions */}
+        <div className="p-2 border-b border-border space-y-1">
+          <button
+            onClick={onNewFile}
+            className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-text hover:bg-bg-deep rounded"
+          >
+            <File size={15} />
+            <span>New File</span>
+          </button>
+
+          <button
+            onClick={onOpenFile}
+            className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-text hover:bg-bg-deep rounded"
+          >
+            <File size={15} />
+            <span>Open File</span>
+          </button>
+
+          <button
+            onClick={onOpenFolder}
+            className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-text hover:bg-bg-deep rounded"
+          >
+            <Folder size={15} />
+            <span>Open Folder</span>
+          </button>
         </div>
 
         {/* Explorer Content */}
