@@ -23,6 +23,7 @@ export default function CodeEditor({ codeText, awareness, theme = 'dark', setSel
   const [isOutputOpen, setIsOutputOpen] = useState(false);
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [currentFile, setCurrentFile] = useState(null);
+  const [explorerFiles, setExplorerFiles] = useState([]);
   const [output, setOutput] = useState("");
  const [editorSettings, setEditorSettings] = useState(() => {
   const saved = localStorage.getItem("editorSettings");
@@ -128,11 +129,19 @@ useEffect(() => {
       const fileName = data.fileName + extensionMap[data.language];
 
       setCurrentFile({
+      name: fileName,
+      language: data.language,
+    });
+
+    setExplorerFiles((prev) => [
+      ...prev,
+      {
         name: fileName,
         language: data.language,
-      });
+      },
+    ]);
 
-      setLanguage(data.language);
+    setLanguage(data.language);
 
       // Clear the collaborative editor
       codeText.delete(0, codeText.length);
@@ -309,7 +318,8 @@ useEffect(() => {
         </div>
               <div className="relative flex-1 min-h-0 h-full overflow-hidden flex">
                 {showFileExplorer && (
-                        <FileExplorer
+                       <FileExplorer
+                          files={explorerFiles}
                           onNewFile={() => setShowNewFileModal(true)}
                           onOpenFile={handleOpenFileClick}
                           onOpenFolder={() => folderInputRef.current?.click()}
@@ -369,13 +379,13 @@ useEffect(() => {
           onChange={handleFileSelect}
         />
         <input
-  type="file"
-  ref={folderInputRef}
-  className="hidden"
-  webkitdirectory="true"
-  directory="true"
-  onChange={handleFolderSelect}
-/>
+        type="file"
+        ref={folderInputRef}
+        className="hidden"
+        webkitdirectory="true"
+        directory="true"
+        onChange={handleFolderSelect}
+      />
     </div>
   )
 }
