@@ -50,17 +50,18 @@ export default function FolderExplorer({
               paddingLeft: `${8 + level * 16}px`,
             }}
             onContextMenu={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
+              event.preventDefault();
+              event.stopPropagation();
 
-            setContextMenu({
-              x: event.clientX,
-              y: event.clientY,
-              item,
-            });
-          }}
+              setContextMenu({
+                x: event.clientX,
+                y: event.clientY,
+                item,
+              });
+            }}
             onClick={(event) => {
               event.stopPropagation();
+              setContextMenu(null);
 
               if (isFolder) {
                 toggleFolder(item);
@@ -72,9 +73,15 @@ export default function FolderExplorer({
             {/* Arrow */}
             {isFolder && children.length > 0 ? (
               isExpanded ? (
-                <ChevronDown size={15} className="flex-shrink-0" />
+                <ChevronDown
+                  size={15}
+                  className="flex-shrink-0"
+                />
               ) : (
-                <ChevronRight size={15} className="flex-shrink-0" />
+                <ChevronRight
+                  size={15}
+                  className="flex-shrink-0"
+                />
               )
             ) : (
               <span className="w-[15px] flex-shrink-0" />
@@ -87,7 +94,10 @@ export default function FolderExplorer({
                 className="text-yellow-400 flex-shrink-0"
               />
             ) : (
-              <File size={15} className="flex-shrink-0" />
+              <File
+                size={15}
+                className="flex-shrink-0"
+              />
             )}
 
             {/* Name */}
@@ -95,7 +105,7 @@ export default function FolderExplorer({
               {item.name}
             </span>
 
-            {/* Actions only for selected folder */}
+            {/* Folder actions */}
             {isFolder && isSelected && (
               <div
                 className="flex items-center gap-0.5 flex-shrink-0"
@@ -139,43 +149,44 @@ export default function FolderExplorer({
     });
   };
 
-    return (
-      <div
-        className="w-full"
-        onClick={() => setContextMenu(null)}
-      >
-        {renderItems(files)}
+  return (
+    <div
+      className="w-full h-full"
+      onClick={() => setContextMenu(null)}
+    >
+      {renderItems(files)}
 
-        {contextMenu && (
-          <div
-            className="fixed z-50 w-36 bg-bg-panel border border-border rounded-md shadow-lg py-1"
-            style={{
-              left: contextMenu.x,
-              top: contextMenu.y,
+      {/* Right-click Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-[9999] w-36 bg-bg-panel border border-border rounded-md shadow-lg py-1"
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y,
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            className="w-full text-left px-3 py-2 text-sm text-text hover:bg-bg-deep"
+            onClick={() => {
+              onRename?.(contextMenu.item);
+              setContextMenu(null);
             }}
-            onClick={(event) => event.stopPropagation()}
           >
-            <button
-              className="w-full text-left px-3 py-2 text-sm text-text hover:bg-bg-deep"
-              onClick={() => {
-                onRename?.(contextMenu.item);
-                setContextMenu(null);
-              }}
-            >
-              Rename
-            </button>
+            Rename
+          </button>
 
-            <button
-              className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-bg-deep"
-              onClick={() => {
-                onDelete?.(contextMenu.item);
-                setContextMenu(null);
-              }}
-            >
-              Delete
-            </button>
-          </div>
-        )}
-      </div>
-    );
+          <button
+            className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-bg-deep"
+            onClick={() => {
+              onDelete?.(contextMenu.item);
+              setContextMenu(null);
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }

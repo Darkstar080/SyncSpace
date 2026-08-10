@@ -321,163 +321,164 @@ useEffect(() => {
   }
 }
 
-    async function handleRenameExplorerItem(item) {
-  if (!item?.handle || !item?.parentHandle) {
-    alert("This item cannot be renamed.");
-    return;
-  }
-
-  const newName = prompt("Enter new name:", item.name);
-
-  if (!newName || newName === item.name) return;
-
-  try {
-    // Check whether the new name already exists
-    try {
-      if (item.kind === "file") {
-        await item.parentHandle.getFileHandle(newName);
-      } else {
-        await item.parentHandle.getDirectoryHandle(newName);
-      }
-
-      alert("An item with that name already exists.");
-      return;
-    } catch {
-      // Name does not exist — continue
-    }
-
-    if (item.kind === "file") {
-      const oldFile = await item.handle.getFile();
-      const newFile = await item.parentHandle.getFileHandle(
-        newName,
-        { create: true }
-      );
-
-      const writable = await newFile.createWritable();
-      await writable.write(await oldFile.arrayBuffer());
-      await writable.close();
-
-      await item.parentHandle.removeEntry(item.name);
-    } else {
-      const newFolder =
-        await item.parentHandle.getDirectoryHandle(
-          newName,
-          { create: true }
-        );
-
-      const copyDirectory = async (source, destination) => {
-        for await (const [name, handle] of source.entries()) {
-          if (handle.kind === "file") {
-            const file = await handle.getFile();
-            const newFile =
-              await destination.getFileHandle(name, {
-                create: true,
-              });
-
-            const writable = await newFile.createWritable();
-            await writable.write(await file.arrayBuffer());
-            await writable.close();
-          } else {
-            const newSubFolder =
-              await destination.getDirectoryHandle(name, {
-                create: true,
-              });
-
-            await copyDirectory(handle, newSubFolder);
-          }
-        }
-      };
-
-      await copyDirectory(item.handle, newFolder);
-
-      await item.parentHandle.removeEntry(item.name, {
-        recursive: true,
-      });
-    }
-
-    await refreshExplorer();
-  } catch (error) {
-    console.error("Failed to rename:", error);
-    alert("Rename failed.");
-  }
-}
-
-    async function handleDeleteExplorerItem(item) {
+     async function handleRenameExplorerItem(item) {
       if (!item?.handle || !item?.parentHandle) {
-        alert("This item cannot be deleted.");
+        console.error("Missing handle or parentHandle:", item);
         return;
       }
 
-  const confirmed = window.confirm(
-    `Delete "${item.name}"?`
-  );
+      const newName = window.prompt(
+        "Enter new name:",
+        item.name
+      );
 
-  if (!confirmed) return;
+      if (!newName || newName === item.name) return;
 
-  try {
-    await item.parentHandle.removeEntry(item.name, {
-      recursive: item.kind === "directory",
-    });
+      try {
+        if (item.kind === "file") {
+          // Read old file
+          const oldFile = await item.handle.getFile();
+          const content = await oldFile.arrayBuffer();
 
-    await refreshExplorer();
-  } catch (error) {
-    console.error("Failed to delete:", error);
-    alert("Delete failed.");
-  }
-}
+          // Create new file with new name
+          const newFileHandle =
+            await item.parentHandle.getFileHandle(newName, {
+              create: true,
+            });
 
-  async function refreshExplorer() {
-  if (!explorerRootHandle) return;
+          const writable = await newFileHandle.createWritable();
+          await writable.write(content);
+          await writable.close();
 
-  const readDirectory = async (directory, parentPath = "") => {
-    const items = [];
+          // Delete old file
+          await item.parentHandle.removeEntry(item.name);
+        } else {
+          // Create renamed folder
+          const newFolderHandle =
+            await item.parentHandle.getDirectoryHandle(newName, {
+              create: true,
+            });
 
-    for await (const [name, handle] of directory.entries()) {
-      const path = parentPath
-        ? `${parentPath}/${name}`
-        : name;
+          // Copy everything recursively
+          const copyFolder = async (source, destination) => {
+            for await (const [name, handle] of source.entries()) {
+              if (handle.kind === "file") {
+                const file = await handle.getFile();
+                const data = await file.arrayBuffer();
 
-      if (handle.kind === "directory") {
-        items.push({
-          name,
-          path,
-          kind: "directory",
-          handle,
-          parentHandle: directory,
-          children: await readDirectory(handle, path),
-        });
-      } else {
-        items.push({
-          name,
-          path,
-          kind: "file",
-          handle,
-          parentHandle: directory,
-        });
+                const newFile =
+                  await destination.getFileHandle(name, {
+                    create: true,
+                  });
+
+                const writable = await newFile.createWritable();
+                await writable.write(data);
+                await writable.close();
+              } else {
+                const newDirectory =
+                  await destination.getDirectoryHandle(name, {
+                    create: true,
+                  });
+
+                await copyFolder(handle, newDirectory);
+              }
+            }
+          };
+
+          await copyFolder(item.handle, newFolderHandle);
+
+          // Delete old folder
+          await item.parentHandle.removeEntry(item.name, {
+            recursive: true,
+          });
+        }
+
+        await refreshExplorer();
+
+      } catch (error) {
+        console.error("RENAME ERROR:", error);
+        alert(`Rename failed: ${error.message}`);
       }
     }
 
-    return items.sort((a, b) => {
-      if (a.kind !== b.kind) {
-        return a.kind === "directory" ? -1 : 1;
+
+    async function handleDeleteExplorerItem(item) {
+      if (!item?.handle || !item?.parentHandle) {
+        console.error("Missing handle or parentHandle:", item);
+        return;
       }
 
-      return a.name.localeCompare(b.name);
-    });
-  };
+      const confirmed = window.confirm(
+        `Are you sure you want to delete "${item.name}"?`
+      );
 
-  const children = await readDirectory(explorerRootHandle);
+      if (!confirmed) return;
 
-  setExplorerFiles([
-    {
-      name: explorerRootHandle.name,
-      path: explorerRootHandle.name,
-      kind: "directory",
-      handle: explorerRootHandle,
-      children,
-    },
-  ]);
-}
+      try {
+        await item.parentHandle.removeEntry(item.name, {
+          recursive: item.kind === "directory",
+        });
+
+        await refreshExplorer();
+
+      } catch (error) {
+        console.error("DELETE ERROR:", error);
+        alert(`Delete failed: ${error.message}`);
+      }
+    }
+
+    async function refreshExplorer() {
+    if (!explorerRootHandle) return;
+
+    const readDirectory = async (directory, parentPath = "") => {
+      const items = [];
+
+      for await (const [name, handle] of directory.entries()) {
+        const path = parentPath
+          ? `${parentPath}/${name}`
+          : name;
+
+        if (handle.kind === "directory") {
+          items.push({
+            name,
+            path,
+            kind: "directory",
+            handle,
+            parentHandle: directory,
+            children: await readDirectory(handle, path),
+          });
+        } else {
+          items.push({
+            name,
+            path,
+            kind: "file",
+            handle,
+            parentHandle: directory,
+          });
+        }
+      }
+
+      return items.sort((a, b) => {
+        if (a.kind !== b.kind) {
+          return a.kind === "directory" ? -1 : 1;
+        }
+
+        return a.name.localeCompare(b.name);
+      });
+    };
+
+    const children = await readDirectory(explorerRootHandle);
+
+    setExplorerFiles([
+      {
+        name: explorerRootHandle.name,
+        path: explorerRootHandle.name,
+        kind: "directory",
+        handle: explorerRootHandle,
+        children,
+      },
+    ]);
+  }
 
     async function handleCreateExplorerFile(parentFolder = null) {
       const targetFolder = parentFolder?.handle || explorerRootHandle;
@@ -613,7 +614,7 @@ useEffect(() => {
                 {showFileExplorer && (
              <FileExplorer
                 files={explorerFiles}
-                onNewFile={handleCreateExplorerFile}
+                onNewFile={() => setShowNewFileModal(true)}
                 onNewFolder={handleCreateExplorerFolder}
                 onOpenFile={handleOpenFileClick}
                 onOpenFolder={handleFolderSelect}
