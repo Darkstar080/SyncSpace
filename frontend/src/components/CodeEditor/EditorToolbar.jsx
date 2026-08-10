@@ -35,17 +35,21 @@ const EditorToolbar = ({
   return (
     <>
       <div className="flex items-center gap-2">
-        <div className="relative">
-          <button
-            onClick={onToggleExplorer}
-            className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-bg-deep transition"
-          >
-            <FolderOpen size={18} className="text-yellow-400" />
-            <span className="text-text">File</span>
-         
-          </button>
-        </div>
 
+        {/* File / Explorer Toggle */}
+        <button
+            type="button"
+            onClick={() => {
+              console.log("FILE BUTTON CLICKED");
+              onToggleExplorer();
+            }}
+          className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-bg-deep transition"
+        >
+          <FolderOpen size={18} className="text-yellow-400" />
+          <span className="text-text">File</span>
+        </button>
+
+        {/* Save */}
         <button
           onClick={onSave}
           className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-bg-deep transition"
@@ -54,6 +58,7 @@ const EditorToolbar = ({
           <span className="text-text">Save</span>
         </button>
 
+        {/* Settings */}
         <div className="relative" ref={settingsMenuRef}>
           <button
             onClick={() => setShowSettings((prev) => !prev)}
@@ -71,6 +76,7 @@ const EditorToolbar = ({
           />
         </div>
 
+        {/* Run */}
         <button
           onClick={onRun}
           className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-md transition"
@@ -78,6 +84,7 @@ const EditorToolbar = ({
           <Play size={18} />
           <span>Run</span>
         </button>
+
       </div>
     </>
   );

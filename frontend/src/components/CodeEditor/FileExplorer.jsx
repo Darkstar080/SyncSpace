@@ -1,11 +1,14 @@
 import { Folder, File } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
+import FolderExplorer from "./FolderExplorer";
 
 export default function FileExplorer({
   files,
   onNewFile,
+  onNewFolder,
   onOpenFile,
   onOpenFolder,
+  onFileClick,
 }) {
   const [width, setWidth] = useState(224);
 
@@ -47,7 +50,6 @@ export default function FileExplorer({
       className="h-full flex flex-shrink-0 bg-bg-panel border-r border-border"
       style={{ width: `${width}px` }}
     >
-      {/* Explorer content */}
       <div className="flex-1 min-w-0 flex flex-col">
 
         {/* Explorer Header */}
@@ -59,6 +61,8 @@ export default function FileExplorer({
 
         {/* File Actions */}
         <div className="p-2 border-b border-border space-y-1">
+
+          {/* New File */}
           <button
             onClick={onNewFile}
             className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-text hover:bg-bg-deep rounded"
@@ -67,6 +71,16 @@ export default function FileExplorer({
             <span>New File</span>
           </button>
 
+          {/* New Folder */}
+          <button
+            onClick={onNewFolder}
+            className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-text hover:bg-bg-deep rounded"
+          >
+            <Folder size={15} className="text-yellow-400" />
+            <span>New Folder</span>
+          </button>
+
+          {/* Open File */}
           <button
             onClick={onOpenFile}
             className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-text hover:bg-bg-deep rounded"
@@ -75,30 +89,27 @@ export default function FileExplorer({
             <span>Open File</span>
           </button>
 
+          {/* Open Folder */}
           <button
             onClick={onOpenFolder}
             className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-text hover:bg-bg-deep rounded"
           >
-            <Folder size={15} />
+            <Folder size={15} className="text-yellow-400" />
             <span>Open Folder</span>
           </button>
+
         </div>
 
-        {/* Dynamic Explorer Content */}
+        {/* Folder Tree */}
         <div className="flex-1 overflow-auto py-1">
-          {files?.map((file, index) => (
-            <div
-              key={`${file.name}-${index}`}
-              className="flex items-center gap-2 px-2 py-1 text-sm text-text-dim hover:bg-bg-deep cursor-pointer"
-            >
-              <File size={15} />
-              <span className="truncate">{file.name}</span>
-            </div>
-          ))}
+          <FolderExplorer
+            files={files}
+            onFileClick={onFileClick}
+          />
         </div>
       </div>
 
-      {/* Draggable vertical divider */}
+      {/* Draggable divider */}
       <div
         onMouseDown={(event) => {
           isDragging.current = true;
