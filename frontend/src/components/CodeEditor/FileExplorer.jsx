@@ -9,6 +9,7 @@ export default function FileExplorer({
   onOpenFile,
   onOpenFolder,
   onFileClick,
+  onRefresh,
 }) {
   const [width, setWidth] = useState(224);
 
@@ -71,15 +72,6 @@ export default function FileExplorer({
             <span>New File</span>
           </button>
 
-          {/* New Folder */}
-          <button
-            onClick={onNewFolder}
-            className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-text hover:bg-bg-deep rounded"
-          >
-            <Folder size={15} className="text-yellow-400" />
-            <span>New Folder</span>
-          </button>
-
           {/* Open File */}
           <button
             onClick={onOpenFile}
@@ -97,7 +89,6 @@ export default function FileExplorer({
             <Folder size={15} className="text-yellow-400" />
             <span>Open Folder</span>
           </button>
-
         </div>
 
         {/* Folder Tree */}
@@ -105,6 +96,9 @@ export default function FileExplorer({
           <FolderExplorer
             files={files}
             onFileClick={onFileClick}
+            onNewFile={onNewFile}
+            onNewFolder={onNewFolder}
+            onRefresh={onRefresh}
           />
         </div>
       </div>

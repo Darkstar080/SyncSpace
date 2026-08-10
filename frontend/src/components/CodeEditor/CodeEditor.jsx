@@ -222,41 +222,31 @@ useEffect(() => {
       }
 
       // This function handles the folder selection event, reads the content of the selected folder, and updates the explorer state accordingly.
-    async function handleExplorerFileClick(file) {
+      const handleExplorerFileClick = async (item) => {
+  if (!item?.handle || item.kind !== "file") return;
+
   try {
-    const fileObject = await file.handle.getFile();
-    const content = await fileObject.text();
+    const file = await item.handle.getFile();
+    const content = await file.text();
 
     const extensionMap = {
       js: "javascript",
-      jsx: "javascript",
       ts: "typescript",
-      tsx: "typescript",
       py: "python",
       java: "java",
       cpp: "cpp",
       c: "c",
-      h: "cpp",
-      html: "html",
-      css: "css",
-      json: "json",
-      xml: "xml",
-      sql: "sql",
-      md: "markdown",
-      txt: "plaintext",
     };
 
-    const extension = file.name.includes(".")
-      ? file.name.split(".").pop().toLowerCase()
-      : "";
-
-    const detectedLanguage = extensionMap[extension] || "plaintext";
+    const extension = item.name.split(".").pop().toLowerCase();
+    const detectedLanguage =
+      extensionMap[extension] || "javascript";
 
     setCurrentFile({
-      name: file.name,
+      name: item.name,
+      path: item.path,
+      handle: item.handle,
       language: detectedLanguage,
-      handle: file.handle,
-      path: file.path,
     });
 
     setLanguage(detectedLanguage);
@@ -264,9 +254,9 @@ useEffect(() => {
     codeText.delete(0, codeText.length);
     codeText.insert(0, content);
   } catch (error) {
-    console.error("Failed to open file:", error);
+    console.error("Failed to open explorer file:", error);
   }
-}
+};
 // This function refreshes the explorer view by reading the contents of the currently opened folder and updating the state accordingly.
      async function handleFolderSelect() {
   try {
@@ -290,6 +280,7 @@ useEffect(() => {
             path,
             kind: "directory",
             handle,
+            parentHandle: directory,
             children: await readDirectory(handle, path),
           });
         } else {
@@ -298,6 +289,7 @@ useEffect(() => {
             path,
             kind: "file",
             handle,
+            parentHandle: directory,
           });
         }
       }
@@ -329,6 +321,111 @@ useEffect(() => {
   }
 }
 
+    async function handleRenameExplorerItem(item) {
+  if (!item?.handle || !item?.parentHandle) {
+    alert("This item cannot be renamed.");
+    return;
+  }
+
+  const newName = prompt("Enter new name:", item.name);
+
+  if (!newName || newName === item.name) return;
+
+  try {
+    // Check whether the new name already exists
+    try {
+      if (item.kind === "file") {
+        await item.parentHandle.getFileHandle(newName);
+      } else {
+        await item.parentHandle.getDirectoryHandle(newName);
+      }
+
+      alert("An item with that name already exists.");
+      return;
+    } catch {
+      // Name does not exist — continue
+    }
+
+    if (item.kind === "file") {
+      const oldFile = await item.handle.getFile();
+      const newFile = await item.parentHandle.getFileHandle(
+        newName,
+        { create: true }
+      );
+
+      const writable = await newFile.createWritable();
+      await writable.write(await oldFile.arrayBuffer());
+      await writable.close();
+
+      await item.parentHandle.removeEntry(item.name);
+    } else {
+      const newFolder =
+        await item.parentHandle.getDirectoryHandle(
+          newName,
+          { create: true }
+        );
+
+      const copyDirectory = async (source, destination) => {
+        for await (const [name, handle] of source.entries()) {
+          if (handle.kind === "file") {
+            const file = await handle.getFile();
+            const newFile =
+              await destination.getFileHandle(name, {
+                create: true,
+              });
+
+            const writable = await newFile.createWritable();
+            await writable.write(await file.arrayBuffer());
+            await writable.close();
+          } else {
+            const newSubFolder =
+              await destination.getDirectoryHandle(name, {
+                create: true,
+              });
+
+            await copyDirectory(handle, newSubFolder);
+          }
+        }
+      };
+
+      await copyDirectory(item.handle, newFolder);
+
+      await item.parentHandle.removeEntry(item.name, {
+        recursive: true,
+      });
+    }
+
+    await refreshExplorer();
+  } catch (error) {
+    console.error("Failed to rename:", error);
+    alert("Rename failed.");
+  }
+}
+
+    async function handleDeleteExplorerItem(item) {
+      if (!item?.handle || !item?.parentHandle) {
+        alert("This item cannot be deleted.");
+        return;
+      }
+
+  const confirmed = window.confirm(
+    `Delete "${item.name}"?`
+  );
+
+  if (!confirmed) return;
+
+  try {
+    await item.parentHandle.removeEntry(item.name, {
+      recursive: item.kind === "directory",
+    });
+
+    await refreshExplorer();
+  } catch (error) {
+    console.error("Failed to delete:", error);
+    alert("Delete failed.");
+  }
+}
+
   async function refreshExplorer() {
   if (!explorerRootHandle) return;
 
@@ -346,6 +443,7 @@ useEffect(() => {
           path,
           kind: "directory",
           handle,
+          parentHandle: directory,
           children: await readDirectory(handle, path),
         });
       } else {
@@ -354,6 +452,7 @@ useEffect(() => {
           path,
           kind: "file",
           handle,
+          parentHandle: directory,
         });
       }
     }
@@ -380,8 +479,10 @@ useEffect(() => {
   ]);
 }
 
-    async function handleCreateExplorerFile() {
-      if (!explorerRootHandle) {
+    async function handleCreateExplorerFile(parentFolder = null) {
+      const targetFolder = parentFolder?.handle || explorerRootHandle;
+
+      if (!targetFolder) {
         alert("Please open a folder first.");
         return;
       }
@@ -390,7 +491,7 @@ useEffect(() => {
       if (!fileName) return;
 
       try {
-        await explorerRootHandle.getFileHandle(fileName, {
+        await targetFolder.getFileHandle(fileName, {
           create: true,
         });
 
@@ -400,8 +501,10 @@ useEffect(() => {
       }
     }
 
-    async function handleCreateExplorerFolder() {
-      if (!explorerRootHandle) {
+    async function handleCreateExplorerFolder(parentFolder = null) {
+      const targetFolder = parentFolder?.handle || explorerRootHandle;
+
+      if (!targetFolder) {
         alert("Please open a folder first.");
         return;
       }
@@ -410,7 +513,7 @@ useEffect(() => {
       if (!folderName) return;
 
       try {
-        await explorerRootHandle.getDirectoryHandle(folderName, {
+        await targetFolder.getDirectoryHandle(folderName, {
           create: true,
         });
 
@@ -419,46 +522,6 @@ useEffect(() => {
         console.error("Failed to create folder:", error);
       }
     }
-          // This function refreshes the explorer view by reading the contents of the currently opened folder and updating the state accordingly.
-    async function handleCreateExplorerFile() {
-  try {
-    if (!explorerRootHandle) {
-      alert("Please open a folder first.");
-      return;
-    }
-
-    const fileName = prompt("Enter file name:");
-    if (!fileName) return;
-
-    await explorerRootHandle.getFileHandle(fileName, {
-      create: true,
-    });
-
-    await refreshExplorer();
-  } catch (error) {
-    console.error("Failed to create file:", error);
-  }
-}
-  // This function refreshes the explorer view by reading the contents of the currently opened folder and updating the state accordingly.
-    async function handleCreateExplorerFolder() {
-          try {
-            if (!explorerRootHandle) {
-              alert("Please open a folder first.");
-              return;
-            }
-
-            const folderName = prompt("Enter folder name:");
-            if (!folderName) return;
-
-            await explorerRootHandle.getDirectoryHandle(folderName, {
-              create: true,
-            });
-
-            await refreshExplorer();
-          } catch (error) {
-            console.error("Failed to create folder:", error);
-          }
-        }
 
           function handleSave() {
               if (!currentFile) {
@@ -548,14 +611,17 @@ useEffect(() => {
         </div>
               <div className="relative flex-1 min-h-0 h-full overflow-hidden flex">
                 {showFileExplorer && (
-                 <FileExplorer
-                  files={explorerFiles}
-                  onNewFile={() => setShowNewFileModal(true)}
-                  onNewFolder={handleCreateExplorerFolder}
-                  onOpenFile={handleOpenFileClick}
-                  onOpenFolder={handleFolderSelect}
-                  onFileClick={handleExplorerFileClick}
-                />
+             <FileExplorer
+                files={explorerFiles}
+                onNewFile={handleCreateExplorerFile}
+                onNewFolder={handleCreateExplorerFolder}
+                onOpenFile={handleOpenFileClick}
+                onOpenFolder={handleFolderSelect}
+                onFileClick={handleExplorerFileClick}
+                onRefresh={refreshExplorer}
+                onRename={handleRenameExplorerItem}
+                onDelete={handleDeleteExplorerItem}
+              />
                 )}
             <div className="relative flex-1 min-w-0 h-full overflow-hidden">
             {currentFile ? (
