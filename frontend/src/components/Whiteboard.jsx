@@ -1410,7 +1410,17 @@ const [showEmojiPicker, setShowEmojiPicker] = useState(false);
                     )}
                   </Group>
                 );
-              }
+              }if (type === "emoji") {
+  return (
+    <Text
+      {...commonProps}
+      text={map.get("emoji")}
+      fontSize={map.get("fontSize") || 40}
+      onTransformEnd={(e) => handleRectTransformEnd(id, e)}
+    />
+  );
+}
+
 
               if (type === "text") {
                 return (
