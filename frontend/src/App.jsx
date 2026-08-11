@@ -32,6 +32,40 @@ export default function App() {
   y: 0,
 });
 const [aiPrompt, setAiPrompt] = useState("");
+const [editorWidth, setEditorWidth] = useState(50);
+const isDraggingEditor = useRef(false);
+
+
+// Handle mouse events for resizing the code editor
+  useEffect(() => {
+  const handleMouseMove = (e) => {
+    if (!isDraggingEditor.current) return;
+
+    const editorWidth =
+      ((window.innerWidth - e.clientX) / window.innerWidth) * 100;
+
+    // Editor can only become wider than its starting position.
+    if (editorWidth >= 50 && editorWidth <= 80) {
+      setEditorWidth(editorWidth);
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (!isDraggingEditor.current) return;
+
+    isDraggingEditor.current = false;
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  };
+
+  window.addEventListener("mousemove", handleMouseMove);
+  window.addEventListener("mouseup", handleMouseUp);
+
+  return () => {
+    window.removeEventListener("mousemove", handleMouseMove);
+    window.removeEventListener("mouseup", handleMouseUp);
+  };
+}, []);
 
   useEffect(() => {
     applyToDocument(theme)
@@ -167,21 +201,40 @@ const [aiPrompt, setAiPrompt] = useState("");
         onSessionExpired={handleSessionExpired}
       />
 
-      <main className="flex-1 flex min-h-0">
+       <main className="flex-1 flex min-h-0">
         <div className="relative flex-1 min-w-0">
           <Whiteboard
             shapes={connection.shapes}
             awareness={connection.awareness}
           />
 
-         <AIPanel
-          isOpen={isAIOpen}
-          onClose={() => setIsAIOpen(false)}
-          aiPrompt={aiPrompt}
-          setAiPrompt={setAiPrompt}
-        />
+          <AIPanel
+            isOpen={isAIOpen}
+            onClose={() => setIsAIOpen(false)}
+            aiPrompt={aiPrompt}
+            setAiPrompt={setAiPrompt}
+          />
         </div>
-       <CodeEditor
+
+        {/* Draggable divider */}
+        <div
+          onMouseDown={() => {
+            isDraggingEditor.current = true;
+            document.body.style.cursor = "col-resize";
+            document.body.style.userSelect = "none";
+          }}
+          className="w-3 -mx-1 bg-gray-700 hover:bg-blue-500 cursor-col-resize transition-colors flex-shrink-0 z-20"
+        >
+          <div className="w-1 h-full mx-auto bg-gray-700 hover:bg-blue-500" />
+        </div>
+
+        <div
+          className="min-w-0 h-full flex flex-col"
+          style={{
+            width: `${editorWidth}%`,
+          }}
+        >
+        <CodeEditor
           codeText={connection.codeText}
           awareness={connection.awareness}
           theme={theme}
@@ -189,6 +242,7 @@ const [aiPrompt, setAiPrompt] = useState("");
           setShowSelectionAI={setShowSelectionAI}
           setSelectionPosition={setSelectionPosition}
         />
+      </div>
       </main>
 
 {/* REPLAY FEATURE */}

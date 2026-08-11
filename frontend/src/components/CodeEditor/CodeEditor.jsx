@@ -5,17 +5,26 @@ import EditorToolbar from "./EditorToolbar";
 import OutputPanel from "./OutputPanel";
 import NewFileModal from "./NewFileModal";
 import { saveFile } from "./saveFile";
+import WelcomeEditor from "./WelcomeEditor";
+import FileExplorer from "./FileExplorer";
 
 
 export default function CodeEditor({ codeText, awareness, theme = 'dark', setSelectedCode, setShowSelectionAI,  setSelectionPosition,}) {
   const bindingRef = useRef(null)
   const editorRef = useRef(null);
   const fileInputRef = useRef(null)
+  const folderInputRef = useRef(null)
   const [language, setLanguage] = useState("python")
+  const [outputHeight, setOutputHeight] = useState(250);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const [showFileExplorer, setShowFileExplorer] = useState(false);
+  const [explorerRootHandle, setExplorerRootHandle] = useState(null);
 
   const [isOutputOpen, setIsOutputOpen] = useState(false);
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [currentFile, setCurrentFile] = useState(null);
+  const [explorerFiles, setExplorerFiles] = useState([]);
   const [output, setOutput] = useState("");
  const [editorSettings, setEditorSettings] = useState(() => {
   const saved = localStorage.getItem("editorSettings");
@@ -37,6 +46,30 @@ useEffect(() => {
     JSON.stringify(editorSettings)
   );
 }, [editorSettings]);
+
+useEffect(() => {
+  function handleMouseMove(e) {
+    if (!isDragging) return;
+
+    const newHeight = window.innerHeight - e.clientY;
+
+    if (newHeight > 120 && newHeight < 500) {
+      setOutputHeight(newHeight);
+    }
+  }
+
+  function handleMouseUp() {
+    setIsDragging(false);
+  }
+
+  window.addEventListener("mousemove", handleMouseMove);
+  window.addEventListener("mouseup", handleMouseUp);
+
+  return () => {
+    window.removeEventListener("mousemove", handleMouseMove);
+    window.removeEventListener("mouseup", handleMouseUp);
+  };
+}, [isDragging]);
 
 
 
@@ -97,11 +130,19 @@ useEffect(() => {
       const fileName = data.fileName + extensionMap[data.language];
 
       setCurrentFile({
+      name: fileName,
+      language: data.language,
+    });
+
+    setExplorerFiles((prev) => [
+      ...prev,
+      {
         name: fileName,
         language: data.language,
-      });
+      },
+    ]);
 
-      setLanguage(data.language);
+    setLanguage(data.language);
 
       // Clear the collaborative editor
       codeText.delete(0, codeText.length);
@@ -146,7 +187,7 @@ useEffect(() => {
 
       setShowNewFileModal(false);
 
-      console.log("Created:", fileName);
+     
     }
 
     // This function triggers the hidden file input when the "Open File" button is clicked.
@@ -180,7 +221,310 @@ useEffect(() => {
         event.target.value = "";
       }
 
-           function handleSave() {
+      // This function handles the folder selection event, reads the content of the selected folder, and updates the explorer state accordingly.
+      const handleExplorerFileClick = async (item) => {
+  if (!item?.handle || item.kind !== "file") return;
+
+  try {
+    const file = await item.handle.getFile();
+    const content = await file.text();
+
+    const extensionMap = {
+      js: "javascript",
+      ts: "typescript",
+      py: "python",
+      java: "java",
+      cpp: "cpp",
+      c: "c",
+    };
+
+    const extension = item.name.split(".").pop().toLowerCase();
+    const detectedLanguage =
+      extensionMap[extension] || "javascript";
+
+    setCurrentFile({
+      name: item.name,
+      path: item.path,
+      handle: item.handle,
+      language: detectedLanguage,
+    });
+
+    setLanguage(detectedLanguage);
+
+    codeText.delete(0, codeText.length);
+    codeText.insert(0, content);
+  } catch (error) {
+    console.error("Failed to open explorer file:", error);
+  }
+};
+// This function refreshes the explorer view by reading the contents of the currently opened folder and updating the state accordingly.
+     async function handleFolderSelect() {
+  try {
+    const directoryHandle = await window.showDirectoryPicker({
+      mode: "readwrite",
+    });
+
+    setExplorerRootHandle(directoryHandle);
+
+    const readDirectory = async (directory, parentPath = "") => {
+      const items = [];
+
+      for await (const [name, handle] of directory.entries()) {
+        const path = parentPath
+          ? `${parentPath}/${name}`
+          : name;
+
+        if (handle.kind === "directory") {
+          items.push({
+            name,
+            path,
+            kind: "directory",
+            handle,
+            parentHandle: directory,
+            children: await readDirectory(handle, path),
+          });
+        } else {
+          items.push({
+            name,
+            path,
+            kind: "file",
+            handle,
+            parentHandle: directory,
+          });
+        }
+      }
+
+      return items.sort((a, b) => {
+        if (a.kind !== b.kind) {
+          return a.kind === "directory" ? -1 : 1;
+        }
+
+        return a.name.localeCompare(b.name);
+      });
+    };
+
+    const children = await readDirectory(directoryHandle);
+
+    setExplorerFiles([
+      {
+        name: directoryHandle.name,
+        path: directoryHandle.name,
+        kind: "directory",
+        handle: directoryHandle,
+        children,
+      },
+    ]);
+  } catch (error) {
+    if (error.name !== "AbortError") {
+      console.error("Failed to open folder:", error);
+    }
+  }
+}
+
+     async function handleRenameExplorerItem(item) {
+      if (!item?.handle || !item?.parentHandle) {
+        console.error("Missing handle or parentHandle:", item);
+        return;
+      }
+
+      const newName = window.prompt(
+        "Enter new name:",
+        item.name
+      );
+
+      if (!newName || newName === item.name) return;
+
+      try {
+        if (item.kind === "file") {
+          // Read old file
+          const oldFile = await item.handle.getFile();
+          const content = await oldFile.arrayBuffer();
+
+          // Create new file with new name
+          const newFileHandle =
+            await item.parentHandle.getFileHandle(newName, {
+              create: true,
+            });
+
+          const writable = await newFileHandle.createWritable();
+          await writable.write(content);
+          await writable.close();
+
+          // Delete old file
+          await item.parentHandle.removeEntry(item.name);
+        } else {
+          // Create renamed folder
+          const newFolderHandle =
+            await item.parentHandle.getDirectoryHandle(newName, {
+              create: true,
+            });
+
+          // Copy everything recursively
+          const copyFolder = async (source, destination) => {
+            for await (const [name, handle] of source.entries()) {
+              if (handle.kind === "file") {
+                const file = await handle.getFile();
+                const data = await file.arrayBuffer();
+
+                const newFile =
+                  await destination.getFileHandle(name, {
+                    create: true,
+                  });
+
+                const writable = await newFile.createWritable();
+                await writable.write(data);
+                await writable.close();
+              } else {
+                const newDirectory =
+                  await destination.getDirectoryHandle(name, {
+                    create: true,
+                  });
+
+                await copyFolder(handle, newDirectory);
+              }
+            }
+          };
+
+          await copyFolder(item.handle, newFolderHandle);
+
+          // Delete old folder
+          await item.parentHandle.removeEntry(item.name, {
+            recursive: true,
+          });
+        }
+
+        await refreshExplorer();
+
+      } catch (error) {
+        console.error("RENAME ERROR:", error);
+        alert(`Rename failed: ${error.message}`);
+      }
+    }
+
+
+    async function handleDeleteExplorerItem(item) {
+      if (!item?.handle || !item?.parentHandle) {
+        console.error("Missing handle or parentHandle:", item);
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `Are you sure you want to delete "${item.name}"?`
+      );
+
+      if (!confirmed) return;
+
+      try {
+        await item.parentHandle.removeEntry(item.name, {
+          recursive: item.kind === "directory",
+        });
+
+        await refreshExplorer();
+
+      } catch (error) {
+        console.error("DELETE ERROR:", error);
+        alert(`Delete failed: ${error.message}`);
+      }
+    }
+
+    async function refreshExplorer() {
+    if (!explorerRootHandle) return;
+
+    const readDirectory = async (directory, parentPath = "") => {
+      const items = [];
+
+      for await (const [name, handle] of directory.entries()) {
+        const path = parentPath
+          ? `${parentPath}/${name}`
+          : name;
+
+        if (handle.kind === "directory") {
+          items.push({
+            name,
+            path,
+            kind: "directory",
+            handle,
+            parentHandle: directory,
+            children: await readDirectory(handle, path),
+          });
+        } else {
+          items.push({
+            name,
+            path,
+            kind: "file",
+            handle,
+            parentHandle: directory,
+          });
+        }
+      }
+
+      return items.sort((a, b) => {
+        if (a.kind !== b.kind) {
+          return a.kind === "directory" ? -1 : 1;
+        }
+
+        return a.name.localeCompare(b.name);
+      });
+    };
+
+    const children = await readDirectory(explorerRootHandle);
+
+    setExplorerFiles([
+      {
+        name: explorerRootHandle.name,
+        path: explorerRootHandle.name,
+        kind: "directory",
+        handle: explorerRootHandle,
+        children,
+      },
+    ]);
+  }
+
+    async function handleCreateExplorerFile(parentFolder = null) {
+      const targetFolder = parentFolder?.handle || explorerRootHandle;
+
+      if (!targetFolder) {
+        alert("Please open a folder first.");
+        return;
+      }
+
+      const fileName = prompt("Enter file name:");
+      if (!fileName) return;
+
+      try {
+        await targetFolder.getFileHandle(fileName, {
+          create: true,
+        });
+
+        await refreshExplorer();
+      } catch (error) {
+        console.error("Failed to create file:", error);
+      }
+    }
+
+    async function handleCreateExplorerFolder(parentFolder = null) {
+      const targetFolder = parentFolder?.handle || explorerRootHandle;
+
+      if (!targetFolder) {
+        alert("Please open a folder first.");
+        return;
+      }
+
+      const folderName = prompt("Enter folder name:");
+      if (!folderName) return;
+
+      try {
+        await targetFolder.getDirectoryHandle(folderName, {
+          create: true,
+        });
+
+        await refreshExplorer();
+      } catch (error) {
+        console.error("Failed to create folder:", error);
+      }
+    }
+
+          function handleSave() {
               if (!currentFile) {
                 alert("Please create or open a file first.");
                 return;
@@ -190,13 +534,14 @@ useEffect(() => {
             }
      // This function handles the "Run" button click event. It retrieves the current code from the editor, logs the selected language and code to the console, and opens the output panel. 
       async function handleRun() {
-         if (!currentFile) {
-        setIsOutputOpen(true);
-        setOutput("Please create a new file or open an existing file first.");
-        return;
-      }
+        if (!currentFile) {
+          setIsOutputOpen(true);
+          setOutput("Please create a new file or open an existing file first.");
+          return;
+        }
 
         const code = codeText.toString().trim();
+
         if (!code) {
           setIsOutputOpen(true);
           setOutput("The current file is empty.");
@@ -204,9 +549,9 @@ useEffect(() => {
         }
 
         setIsOutputOpen(true);
+        setIsRunning(true);
+        setOutput("");
 
-        console.log("Sending Language:", language);
-        console.log("Sending Code:", code);
         try {
           const response = await fetch("http://localhost:4000/run", {
             method: "POST",
@@ -221,17 +566,24 @@ useEffect(() => {
 
           const data = await response.json();
 
-          console.log("Response:", data);
           if (data.status === "success") {
-              setOutput(data.output);
-            } else {
-              setOutput(data.error || "Execution failed.");
-            }
+            setOutput(
+              `${data.output}\n\n✓ Process finished successfully`
+            );
+          } else {
+            setOutput(
+              `${data.error || "Execution failed."}\n\n✗ Process failed`
+            );
+          }
         } catch (error) {
           console.error(error);
+          setOutput(
+            "Failed to connect to execution server.\n\n✗ Process failed"
+          );
+        } finally {
+          setIsRunning(false);
         }
       }
-
       
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -248,56 +600,71 @@ useEffect(() => {
             </span>
           )}
         </div>
-        <EditorToolbar
-          onRun={handleRun}
-          onSave={handleSave}
-          onNewFile={() => setShowNewFileModal(true)}
-          onOpenFile={handleOpenFileClick}
-          editorSettings={editorSettings}
-          setEditorSettings={setEditorSettings}
-        />
+              <EditorToolbar
+                onRun={handleRun}
+                onSave={handleSave}
+                onNewFile={() => setShowNewFileModal(true)}
+                onOpenFile={handleOpenFileClick}
+                onToggleExplorer={() => setShowFileExplorer((prev) => !prev)}
+                editorSettings={editorSettings}
+                setEditorSettings={setEditorSettings}
+              />
         </div>
-                <div className="relative flex-1 min-h-0">
-          <Editor
-  height="100%"
-  language={language}
-  theme={editorSettings.theme}
-  onMount={handleMount}
-  options={{
-    fontSize: editorSettings.fontSize,
-    wordWrap: editorSettings.wordWrap,
-    minimap: {
-      enabled: editorSettings.minimap,
-    },
-    lineNumbers: editorSettings.lineNumbers,
-  }}
-/>
-
-          {!currentFile && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-center text-text-dim">
-                <h2 className="text-2xl font-semibold text-text">
-                  Welcome to SyncSpace
-                </h2>
-
-                <p className="mt-3">
-                  ⚠️ Please create a new file or open an existing file before writing
-                  code.
-                </p>
-
-                <p className="mt-2">
-                  Use the <b>New File</b> or <b>Open File</b> option in the toolbar.
-                </p>
-              </div>
+              <div className="relative flex-1 min-h-0 h-full overflow-hidden flex">
+                {showFileExplorer && (
+             <FileExplorer
+                files={explorerFiles}
+                onNewFile={() => setShowNewFileModal(true)}
+                onNewFolder={handleCreateExplorerFolder}
+                onOpenFile={handleOpenFileClick}
+                onOpenFolder={handleFolderSelect}
+                onFileClick={handleExplorerFileClick}
+                onRefresh={refreshExplorer}
+                onRename={handleRenameExplorerItem}
+                onDelete={handleDeleteExplorerItem}
+              />
+                )}
+            <div className="relative flex-1 min-w-0 h-full overflow-hidden">
+            {currentFile ? (
+              <Editor
+                height="100%"
+                language={language}
+                theme={editorSettings.theme}
+                onMount={handleMount}
+                options={{
+                  fontSize: editorSettings.fontSize,
+                  wordWrap: editorSettings.wordWrap,
+                  minimap: {
+                    enabled: editorSettings.minimap,
+                  },
+                        lineNumbers: editorSettings.lineNumbers,
+                      }}
+                    />
+                  ) : (
+                <WelcomeEditor
+                  onNewFile={() => setShowNewFileModal(true)}
+                  onOpenFile={handleOpenFileClick}
+                />
+              )}
             </div>
+            </div>
+       <>
+       
+          {isOutputOpen && (
+            <div
+              onMouseDown={() => setIsDragging(true)}
+              className="h-2 cursor-row-resize bg-gray-700 hover:bg-blue-500 transition"
+            />
           )}
-        </div>
 
         <OutputPanel
           isOpen={isOutputOpen}
           output={output}
+          height={outputHeight}
           onClose={() => setIsOutputOpen(false)}
+          onClear={() => setOutput("")}
         />
+        </>
         <NewFileModal
           open={showNewFileModal}
           onClose={() => setShowNewFileModal(false)}
@@ -310,6 +677,14 @@ useEffect(() => {
           accept=".js,.ts,.py,.java,.cpp,.c,.txt"
           onChange={handleFileSelect}
         />
+        <input
+        type="file"
+        ref={folderInputRef}
+        className="hidden"
+        webkitdirectory="true"
+        directory="true"
+        onChange={handleFolderSelect}
+      />
     </div>
   )
 }
