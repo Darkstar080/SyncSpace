@@ -1204,13 +1204,17 @@ const [showEmojiPicker, setShowEmojiPicker] = useState(false);
           }}
         >
           {/* Make sure your Layer and shapes go here! */}
-          <Layer>
-             {/* BACKGROUND — MUST BE FIRST */}
-    <WhiteboardBackground
-      background={background}
-      width={5000}
-      height={5000}
-    />
+          {/* BACKGROUND LAYER */}
+<Layer listening={false}>
+  <WhiteboardBackground
+    background={background}
+    width={5000}
+    height={5000}
+  />
+</Layer>
+
+{/* DRAWING LAYER */}
+<Layer>
             {Array.from(shapes).map((map) => {
               const type = map.get("type");
               const id = map.get("id");
