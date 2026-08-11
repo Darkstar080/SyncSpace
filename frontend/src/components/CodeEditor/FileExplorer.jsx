@@ -10,6 +10,8 @@ export default function FileExplorer({
   onOpenFolder,
   onFileClick,
   onRefresh,
+  onRename,
+  onDelete,
 }) {
   const [width, setWidth] = useState(224);
 
@@ -99,6 +101,8 @@ export default function FileExplorer({
             onNewFile={onNewFile}
             onNewFolder={onNewFolder}
             onRefresh={onRefresh}
+            onRename={onRename}
+            onDelete={onDelete}
           />
         </div>
       </div>
