@@ -44,6 +44,26 @@ const BACKGROUNDS = {
     color: "#008000",
   },
 
+  blue: {
+    type: "solid",
+    color: "#EAF4FF",
+  },
+
+  pink: {
+    type: "solid",
+    color: "#FFEAF4",
+  },
+
+  yellow: {
+    type: "solid",
+    color: "#FFF9D6",
+  },
+
+  gray: {
+    type: "solid",
+    color: "#F3F4F6",
+  },
+
   "dot-grid": {
     type: "pattern",
     color: "#ffffff",
@@ -54,6 +74,24 @@ const BACKGROUNDS = {
     type: "pattern",
     color: "#ffffff",
     pattern: "square-grid",
+  },
+
+  ruled: {
+    type: "pattern",
+    color: "#ffffff",
+    pattern: "ruled",
+  },
+
+  graph: {
+    type: "pattern",
+    color: "#ffffff",
+    pattern: "graph",
+  },
+
+  diagonal: {
+    type: "pattern",
+    color: "#ffffff",
+    pattern: "diagonal",
   },
 };
 
