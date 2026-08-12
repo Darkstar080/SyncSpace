@@ -97,24 +97,63 @@ const BACKGROUNDS = {
 
 function createPatternImage(type) {
   const svg =
-    type === "dot-grid"
-      ? `
-        <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25">
-          <rect width="25" height="25" fill="#ffffff"/>
-          <circle cx="2" cy="2" r="1" fill="#c5c5c5"/>
-        </svg>
-      `
-      : `
-        <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25">
-          <rect width="25" height="25" fill="#ffffff"/>
-          <path
-            d="M 25 0 L 0 0 0 25"
-            fill="none"
-            stroke="#d8d8d8"
-            stroke-width="1"
-          />
-        </svg>
-      `;
+  type === "dot-grid"
+    ? `
+      <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25">
+        <rect width="25" height="25" fill="#ffffff"/>
+        <circle cx="2" cy="2" r="1" fill="#c5c5c5"/>
+      </svg>
+    `
+    : type === "square-grid"
+    ? `
+      <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25">
+        <rect width="25" height="25" fill="#ffffff"/>
+        <path
+          d="M 25 0 L 0 0 0 25"
+          fill="none"
+          stroke="#d8d8d8"
+          stroke-width="1"
+        />
+      </svg>
+    `
+    : type === "ruled"
+    ? `
+      <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25">
+        <rect width="25" height="25" fill="#ffffff"/>
+        <line
+          x1="0"
+          y1="24"
+          x2="25"
+          y2="24"
+          stroke="#b8d4f0"
+          stroke-width="1"
+        />
+      </svg>
+    `
+    : type === "graph"
+    ? `
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+        <rect width="20" height="20" fill="#ffffff"/>
+        <path
+          d="M 20 0 L 0 0 0 20"
+          fill="none"
+          stroke="#c8d8e8"
+          stroke-width="1"
+        />
+      </svg>
+    `
+    : `
+      <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25">
+        <rect width="25" height="25" fill="#ffffff"/>
+        <path
+          d="M -5 25 L 25 -5
+             M 5 30 L 30 5"
+          fill="none"
+          stroke="#dddddd"
+          stroke-width="1"
+        />
+      </svg>
+    `;
 
   const image = new window.Image();
 
