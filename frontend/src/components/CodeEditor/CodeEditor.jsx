@@ -117,19 +117,100 @@ useEffect(() => {
     )
         }
 
-   function handleCreateFile(data) {
-   const extensionMap = {
-        javascript: ".js",
-        typescript: ".ts",
-        python: ".py",
-        java: ".java",
-        cpp: ".cpp",
-        c: ".c",
-      };
+      async function handleCreateFile(data) {
+  const extensionMap = {
+    javascript: ".js",
+    typescript: ".ts",
+    python: ".py",
+    java: ".java",
+    cpp: ".cpp",
+    c: ".c",
+  };
 
-      const fileName = data.fileName + extensionMap[data.language];
+  const fileName =
+    data.fileName + extensionMap[data.language];
 
+  const templates = {
+    python: "# Start coding here\n\n",
+    javascript: "// Start coding here\n\n",
+    typescript: "// Start coding here\n\n",
+
+    java: `// Start coding here
+
+public class Main {
+
+}
+`,
+
+    cpp: `// Start coding here
+
+#include <iostream>
+using namespace std;
+
+int main() {
+
+    return 0;
+}
+`,
+
+    c: `// Start coding here
+
+#include <stdio.h>
+
+int main() {
+
+    return 0;
+}
+`,
+  };
+
+  const initialContent =
+    templates[data.language] || "";
+
+  try {
+    // Get the REAL opened project folder
+    const rootHandle =
+      explorerFiles?.[0]?.handle || explorerRootHandle;
+
+    if (rootHandle) {
+      // Create real filesystem file
+      const fileHandle =
+        await rootHandle.getFileHandle(fileName, {
+          create: true,
+        });
+
+      const writable =
+        await fileHandle.createWritable();
+
+      await writable.write(initialContent);
+      await writable.close();
+
+      // Set current editor file
       setCurrentFile({
+        name: fileName,
+        path: fileName,
+        language: data.language,
+        handle: fileHandle,
+        parentHandle: rootHandle,
+      });
+
+      setLanguage(data.language);
+
+      codeText.delete(0, codeText.length);
+      codeText.insert(0, initialContent);
+
+      setShowNewFileModal(false);
+
+      // IMPORTANT:
+      // Rebuild explorer from the real filesystem.
+      await refreshExplorer();
+
+      return;
+    }
+
+    // No project folder open:
+    // preserve normal editor-only New File behavior.
+    setCurrentFile({
       name: fileName,
       language: data.language,
     });
@@ -144,51 +225,16 @@ useEffect(() => {
 
     setLanguage(data.language);
 
-      // Clear the collaborative editor
-      codeText.delete(0, codeText.length);
+    codeText.delete(0, codeText.length);
+    codeText.insert(0, initialContent);
 
-      const templates = {
-      python: "# Start coding here\n\n",
+    setShowNewFileModal(false);
 
-      javascript: "// Start coding here\n\n",
-
-      typescript: "// Start coding here\n\n",
-
-      java: `// Start coding here
-
-    public class Main {
-
-    }
-    `,
-
-      cpp: `// Start coding here
-
-    #include <iostream>
-    using namespace std;
-
-    int main() {
-
-        return 0;
-    }
-    `,
-
-      c: `// Start coding here
-
-    #include <stdio.h>
-
-    int main() {
-
-        return 0;
-    }
-    `,
-          };
-
-        codeText.insert(0, templates[data.language] || "");
-
-      setShowNewFileModal(false);
-
-     
-    }
+  } catch (error) {
+    console.error("Failed to create file:", error);
+    alert(`Failed to create file: ${error.message}`);
+  }
+}
 
     // This function triggers the hidden file input when the "Open File" button is clicked.
     function handleOpenFileClick() {
@@ -641,10 +687,7 @@ useEffect(() => {
                       }}
                     />
                   ) : (
-                <WelcomeEditor
-                  onNewFile={() => setShowNewFileModal(true)}
-                  onOpenFile={handleOpenFileClick}
-                />
+                <WelcomeEditor/>
               )}
             </div>
             </div>
