@@ -1174,10 +1174,6 @@ const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   <option value="white">White</option>
   <option value="black">Black</option>
   <option value="green">Green</option>
-  <option value="blue">Blue</option>
-  <option value="pink">Pink</option>
-  <option value="yellow">Yellow</option>
-  <option value="gray">Gray</option>
 </optgroup>
           <optgroup label="Patterns">
   <option value="dot-grid">Dot Grid</option>
