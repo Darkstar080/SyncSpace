@@ -44,6 +44,26 @@ const BACKGROUNDS = {
     color: "#008000",
   },
 
+  blue: {
+    type: "solid",
+    color: "#EAF4FF",
+  },
+
+  pink: {
+    type: "solid",
+    color: "#FFEAF4",
+  },
+
+  yellow: {
+    type: "solid",
+    color: "#FFF9D6",
+  },
+
+  gray: {
+    type: "solid",
+    color: "#F3F4F6",
+  },
+
   "dot-grid": {
     type: "pattern",
     color: "#ffffff",
@@ -55,28 +75,85 @@ const BACKGROUNDS = {
     color: "#ffffff",
     pattern: "square-grid",
   },
+
+  ruled: {
+    type: "pattern",
+    color: "#ffffff",
+    pattern: "ruled",
+  },
+
+  graph: {
+    type: "pattern",
+    color: "#ffffff",
+    pattern: "graph",
+  },
+
+  diagonal: {
+    type: "pattern",
+    color: "#ffffff",
+    pattern: "diagonal",
+  },
 };
 
 function createPatternImage(type) {
   const svg =
-    type === "dot-grid"
-      ? `
-        <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25">
-          <rect width="25" height="25" fill="#ffffff"/>
-          <circle cx="2" cy="2" r="1" fill="#c5c5c5"/>
-        </svg>
-      `
-      : `
-        <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25">
-          <rect width="25" height="25" fill="#ffffff"/>
-          <path
-            d="M 25 0 L 0 0 0 25"
-            fill="none"
-            stroke="#d8d8d8"
-            stroke-width="1"
-          />
-        </svg>
-      `;
+  type === "dot-grid"
+    ? `
+      <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25">
+        <rect width="25" height="25" fill="#ffffff"/>
+        <circle cx="2" cy="2" r="1" fill="#c5c5c5"/>
+      </svg>
+    `
+    : type === "square-grid"
+    ? `
+      <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25">
+        <rect width="25" height="25" fill="#ffffff"/>
+        <path
+          d="M 25 0 L 0 0 0 25"
+          fill="none"
+          stroke="#d8d8d8"
+          stroke-width="1"
+        />
+      </svg>
+    `
+    : type === "ruled"
+    ? `
+      <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25">
+        <rect width="25" height="25" fill="#ffffff"/>
+        <line
+          x1="0"
+          y1="24"
+          x2="25"
+          y2="24"
+          stroke="#b8d4f0"
+          stroke-width="1"
+        />
+      </svg>
+    `
+    : type === "graph"
+    ? `
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+        <rect width="20" height="20" fill="#ffffff"/>
+        <path
+          d="M 20 0 L 0 0 0 20"
+          fill="none"
+          stroke="#c8d8e8"
+          stroke-width="1"
+        />
+      </svg>
+    `
+    : `
+      <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25">
+        <rect width="25" height="25" fill="#ffffff"/>
+        <path
+          d="M -5 25 L 25 -5
+             M 5 30 L 30 5"
+          fill="none"
+          stroke="#dddddd"
+          stroke-width="1"
+        />
+      </svg>
+    `;
 
   const image = new window.Image();
 
@@ -85,10 +162,21 @@ function createPatternImage(type) {
   return image;
 }
 
-function WhiteboardBackground({ background, width, height }) {
+function WhiteboardBackground({
+  background,
+  customBackgroundColor,
+  width,
+  height,
+}) {
   const [patternImage, setPatternImage] = useState(null);
 
-  const backgroundConfig = BACKGROUNDS[background] || BACKGROUNDS.white;
+  const backgroundConfig =
+  background === "custom"
+    ? {
+        type: "solid",
+        color: customBackgroundColor,
+      }
+    : BACKGROUNDS[background] || BACKGROUNDS.white;
 
   useEffect(() => {
     if (backgroundConfig.type !== "pattern") {
@@ -136,6 +224,14 @@ function WhiteboardBackground({ background, width, height }) {
 }
 
 const TOOLS = ["select", "pen", "eraser", "delete", "text"];
+const EMOJIS = [
+  "😀", "😁", "😂", "🤣", "😊", "😍", "😎", "🤔",
+  "😢", "😭", "😡", "❤️", "💙", "💚", "💛",
+  "👍", "👎", "👏", "🙌", "✌️", "🤝",
+  "⭐", "✨", "🔥", "💡", "🚀", "🎯",
+  "📌", "📍", "✅", "❌", "⚠️"
+];
+
 const ImageShape = forwardRef(function ImageShape({ src, ...props }, ref) {
   const [image, setImage] = useState(null);
 
@@ -184,8 +280,12 @@ const ImageShape = forwardRef(function ImageShape({ src, ...props }, ref) {
 export default function Whiteboard({ shapes, awareness }) {
 const [, forceRender] = useReducer((x) => x + 1, 0);
   const [tool, setTool] = useState("select");
+  const [selectedEmoji, setSelectedEmoji] = useState("😀");
+const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [background, setBackground] = useState("white");
+  const [customBackgroundColor, setCustomBackgroundColor] =
+  useState("#ffffff");
   
   const [isFullscreen, setIsFullscreen] = useState(false);
   const whiteboardRef = useRef(null);
@@ -637,6 +737,27 @@ const [, forceRender] = useReducer((x) => x + 1, 0);
     if (textBox) return;
 
     const pos = pointerPos();
+
+    if (tool === "emoji") {
+  if (!pos) return;
+
+  const id = `${awareness.clientID}-${Date.now()}`;
+  const map = new Y.Map();
+
+  map.set("id", id);
+  map.set("type", "emoji");
+  map.set("emoji", selectedEmoji);
+  map.set("x", pos.x);
+  map.set("y", pos.y);
+  map.set("fontSize", 40);
+  map.set("rotation", 0);
+
+  shapes.push([map]);
+
+  setSelectedId(id);
+  return;
+}
+
     if (tool === "text") {
       setTextBox({
         x: pos.x,
@@ -1000,6 +1121,18 @@ const [, forceRender] = useReducer((x) => x + 1, 0);
             onChange={handleImageInsert}
           />
           <button
+  className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
+  onClick={() => {
+    setShowEmojiPicker(!showEmojiPicker);
+    setShowPenPanel(false);
+    setShowShapePanel(false);
+    setShowTextPanel(false);
+  }}
+>
+  😀
+</button>
+
+          <button
             className="px-2.5 py-1 rounded-md text-xs bg-transparent text-text-dim border border-border hover:opacity-80 shrink-0"
             onClick={() => {
   imageInputRef.current?.click()
@@ -1037,18 +1170,38 @@ const [, forceRender] = useReducer((x) => x + 1, 0);
             onChange={(e) => setBackground(e.target.value)}
             className="px-2 py-1 rounded-md text-xs border border-border bg-white text-black shrink-0"
           >
-            <optgroup label="Solid Colors">
-              <option value="white">White</option>
-              <option value="black">Black</option>
-              <option value="green">Green</option>
-            </optgroup>
-
-            <optgroup label="Patterns">
-              <option value="dot-grid">Dot Grid</option>
-              <option value="square-grid">Square Grid</option>
-            </optgroup>
+           <optgroup label="Solid Colors">
+  <option value="white">White</option>
+  <option value="black">Black</option>
+  <option value="green">Green</option>
+</optgroup>
+          <optgroup label="Patterns">
+  <option value="dot-grid">Dot Grid</option>
+  <option value="square-grid">Square Grid</option>
+  <option value="ruled">Ruled Paper</option>
+  <option value="graph">Graph Paper</option>
+  <option value="diagonal">Diagonal Lines</option>
+</optgroup> 
           </select>
 
+        {/* CUSTOM COLOR PICKER */}
+<div className="flex items-center gap-1 px-2 py-1 border border-border rounded-md bg-bg-panel shrink-0">
+  <span className="text-xs text-text-dim">
+    Custom
+  </span>
+
+  <input
+    type="color"
+    value={customBackgroundColor}
+    onChange={(e) => {
+      const color = e.target.value;
+      setCustomBackgroundColor(color);
+      setBackground("custom");
+    }}
+    className="w-8 h-8 cursor-pointer rounded border border-gray-400"
+    title="Choose Custom Background Color"
+  />
+</div>  
           <div className="w-px h-5 bg-border shrink-0" />
 
           {/* HISTORY CONTROLS */}
@@ -1161,13 +1314,18 @@ const [, forceRender] = useReducer((x) => x + 1, 0);
           }}
         >
           {/* Make sure your Layer and shapes go here! */}
-          <Layer>
-             {/* BACKGROUND — MUST BE FIRST */}
-    <WhiteboardBackground
-      background={background}
-      width={5000}
-      height={5000}
-    />
+          {/* BACKGROUND LAYER */}
+<Layer listening={false}>
+  <WhiteboardBackground
+  background={background}
+  customBackgroundColor={customBackgroundColor}
+  width={5000}
+  height={5000}
+/>
+</Layer>
+
+{/* DRAWING LAYER */}
+<Layer>
             {Array.from(shapes).map((map) => {
               const type = map.get("type");
               const id = map.get("id");
@@ -1367,7 +1525,17 @@ const [, forceRender] = useReducer((x) => x + 1, 0);
                     )}
                   </Group>
                 );
-              }
+              }if (type === "emoji") {
+  return (
+    <Text
+      {...commonProps}
+      text={map.get("emoji")}
+      fontSize={map.get("fontSize") || 40}
+      onTransformEnd={(e) => handleRectTransformEnd(id, e)}
+    />
+  );
+}
+
 
               if (type === "text") {
                 return (
@@ -1454,6 +1622,53 @@ const [, forceRender] = useReducer((x) => x + 1, 0);
             )}
           </Layer>
         </Stage>
+        {showEmojiPicker && (
+  <div
+    style={{
+      position: "absolute",
+      top: 55,
+      left: 20,
+      width: 260,
+      background: "#ffffff",
+      border: "1px solid #ddd",
+      borderRadius: "12px",
+      padding: "12px",
+      boxShadow: "0 4px 15px rgba(0,0,0,0.15)",
+      zIndex: 1000,
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "6px",
+    }}
+  >
+    {EMOJIS.map((emoji) => (
+      <button
+        key={emoji}
+        onClick={() => {
+          setSelectedEmoji(emoji);
+          setShowEmojiPicker(false);
+          setTool("emoji");
+        }}
+        style={{
+          width: "38px",
+          height: "38px",
+          fontSize: "24px",
+          border: "none",
+          background: "transparent",
+          borderRadius: "8px",
+          cursor: "pointer",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "#f0f0f0";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
+        }}
+      >
+        {emoji}
+      </button>
+    ))}
+  </div>
+)}
 
         {showTextPanel && (
           <div
