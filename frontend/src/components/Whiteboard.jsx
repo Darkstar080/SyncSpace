@@ -1176,10 +1176,13 @@ const [showEmojiPicker, setShowEmojiPicker] = useState(false);
               <option value="green">Green</option>
             </optgroup>
 
-            <optgroup label="Patterns">
-              <option value="dot-grid">Dot Grid</option>
-              <option value="square-grid">Square Grid</option>
-            </optgroup>
+          <optgroup label="Patterns">
+  <option value="dot-grid">Dot Grid</option>
+  <option value="square-grid">Square Grid</option>
+  <option value="ruled">Ruled Paper</option>
+  <option value="graph">Graph Paper</option>
+  <option value="diagonal">Diagonal Lines</option>
+</optgroup> 
           </select>
 
           <div className="flex items-center gap-1 px-2 py-1 border border-border rounded-md bg-bg-panel">
