@@ -1,5 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Minus, Smile, SendHorizontal } from "lucide-react";
+import {
+  X,
+  Minus,
+  Smile,
+  SendHorizontal,
+  MessageCircle,
+} from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 
 const ChatWindow = ({
@@ -30,17 +36,17 @@ const ChatWindow = ({
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
 
-    useEffect(() => {
-      const updateMessages = () => {
-        setMessages(chatMessages.toArray());
-      };
+  useEffect(() => {
+    const updateMessages = () => {
+      setMessages(chatMessages.toArray());
+    };
 
-      updateMessages();
+    updateMessages();
 
-      chatMessages.observe(updateMessages);
+    chatMessages.observe(updateMessages);
 
-      return () => chatMessages.unobserve(updateMessages);
-    }, [chatMessages]);
+    return () => chatMessages.unobserve(updateMessages);
+  }, [chatMessages]);
 
   const messagesEndRef = useRef(null);
 
@@ -83,34 +89,37 @@ const ChatWindow = ({
   }, [dragging]);
 
   const handleEmojiClick = (emojiData) => {
-  setInput((prev) => prev + emojiData.emoji);
+    setInput((prev) => prev + emojiData.emoji);
     setShowEmojiPicker(false);
   };
 
- const sendMessage = () => {
-  if (!input.trim()) return;
+  const sendMessage = () => {
+    if (!input.trim()) return;
 
-  const user =
-    awareness.getLocalState()?.user || {
-      name: "Anonymous",
-    };
+    const user =
+      awareness.getLocalState()?.user || {
+        name: "Anonymous",
+      };
 
-  chatMessages.push([
-    {
-      id: Date.now(),
-      sender: user.name,
-      text: input,
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    },
-  ]);
+    chatMessages.push([
+      {
+        id: Date.now(),
+        sender: user.name,
+        text: input,
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      },
+    ]);
 
-  setInput("");
-};
+    setInput("");
+  };
 
-    return (
+  const currentUser =
+    awareness.getLocalState()?.user?.name;
+
+  return (
     <div
       ref={dragRef}
       className="fixed z-50 select-none"
@@ -120,93 +129,144 @@ const ChatWindow = ({
       }}
     >
       <div
-        className={`overflow-hidden rounded-2xl border border-border bg-bg-panel shadow-2xl transition-all duration-300 ${
-          isMinimized ? "h-16 w-[380px]" : "h-[550px] w-[380px]"
+        className={`flex flex-col overflow-hidden rounded-xl border border-[#cfd3da] bg-[#f4f5f7] shadow-2xl ${
+          isMinimized
+            ? "h-14 w-[380px]"
+            : "h-[550px] w-[380px]"
         }`}
       >
+        {/* Header */}
         <div
           onMouseDown={handleMouseDown}
-          className="flex cursor-move items-center justify-between bg-accent px-5 py-4 text-bg-deep"
+          className="flex h-14 flex-shrink-0 cursor-move items-center justify-between border-b border-[#d7dae0] bg-[#ffffff] px-4"
         >
-          <div>
-            <h2 className="text-lg font-semibold">Chat</h2>
-            <p className="text-xs opacity-70">
-              Room Messages
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eef0f3]">
+              <MessageCircle
+                size={17}
+                className="text-[#596273]"
+              />
+            </div>
+
+            <div>
+              <h2 className="text-sm font-semibold text-[#252a34]">
+                Chat
+              </h2>
+
+              <p className="text-[11px] text-[#7b8494]">
+                Room Messages
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={onMinimize}
-              className="rounded-full p-1 transition hover:brightness-90"
+              title="Minimize"
+              className="rounded-md p-1.5 text-[#737b89] transition hover:bg-[#eef0f3] hover:text-[#252a34]"
             >
-              <Minus size={18} />
+              <Minus size={17} />
             </button>
 
             <button
               onClick={onClose}
-              className="rounded-full p-1 transition hover:brightness-90"
+              title="Close"
+              className="rounded-md p-1.5 text-[#737b89] transition hover:bg-[#eef0f3] hover:text-[#252a34]"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
         </div>
 
         {!isMinimized && (
           <>
-            <div className="flex-1 space-y-4 overflow-y-auto bg-bg p-4 h-[410px]">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${
-                    msg.sender === awareness.getLocalState()?.user?.name ? "justify-end" : "justify-start"
-                  }`}
-                >
-                  <div
-                    className={`max-w-[75%] rounded-2xl px-4 py-3 ${
-                      msg.sender === awareness.getLocalState()?.user?.name
-                        ? "rounded-br-sm bg-accent text-bg-deep"
-                        : "rounded-bl-sm bg-bg-deep text-text"
-                    }`}
-                  >
-                    {msg.sender !== awareness.getLocalState()?.user?.name && (
-                      <p className="text-xs font-semibold text-accent">
-                        {msg.sender}
-                      </p>
-                    )}
+            {/* Messages */}
+            <div className="flex-1 min-h-0 space-y-4 overflow-y-auto bg-[#f4f5f7] p-4">
+              {messages.length === 0 ? (
+                <div className="flex h-full items-center justify-center">
+                  <div className="text-center">
+                    <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#e8eaee]">
+                      <MessageCircle
+                        size={22}
+                        className="text-[#737b89]"
+                      />
+                    </div>
 
-                    <p className="mt-1 text-sm">
-                      {msg.text}
-                    </p>
+                    <h3 className="text-sm font-medium text-[#343a46]">
+                      No messages yet
+                    </h3>
 
-                    <p
-                      className={`mt-1 text-right text-[10px] ${
-                        msg.sender === awareness.getLocalState()?.user?.name
-                          ? "text-bg-deep opacity-70"
-                          : "text-text-dim"
-                      }`}
-                    >
-                      {msg.time}
+                    <p className="mt-1 text-xs text-[#858d9b]">
+                      Start a conversation with your team.
                     </p>
                   </div>
                 </div>
-              ))}
+              ) : (
+                <>
+                  {messages.map((msg) => {
+                    const isMine =
+                      msg.sender === currentUser;
 
-              <div ref={messagesEndRef} />
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex ${
+                          isMine
+                            ? "justify-end"
+                            : "justify-start"
+                        }`}
+                      >
+                        <div
+                          className={`max-w-[75%] rounded-xl px-3.5 py-2.5 ${
+                            isMine
+                              ? "rounded-br-sm bg-accent text-bg-deep"
+                              : "rounded-bl-sm border border-[#d8dbe1] bg-white text-[#303642]"
+                          }`}
+                        >
+                          {!isMine && (
+                            <p className="mb-1 text-[11px] font-medium text-[#697384]">
+                              {msg.sender}
+                            </p>
+                          )}
+
+                          <p className="break-words text-sm leading-5">
+                            {msg.text}
+                          </p>
+
+                          <p
+                            className={`mt-1 text-right text-[10px] ${
+                              isMine
+                                ? "text-bg-deep opacity-60"
+                                : "text-[#8a92a0]"
+                            }`}
+                          >
+                            {msg.time}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div ref={messagesEndRef} />
+                </>
+              )}
             </div>
 
-            <div className="border-t border-border bg-bg-panel p-3">
-              <div className="flex items-center gap-2 rounded-full border border-border bg-bg-deep px-3 py-2">
-                <div className="relative">
+            {/* Input */}
+            <div className="flex-shrink-0 border-t border-[#d7dae0] bg-white p-3">
+              <div className="relative flex items-center gap-2 rounded-lg border border-[#d1d5db] bg-[#f7f8fa] px-3 py-2 focus-within:border-[#aeb5c0]">
                 <button
-                  onClick={() => setShowEmojiPicker((prev) => !prev)}
-                  className="text-text-dim transition hover:text-accent"
+                  onClick={() =>
+                    setShowEmojiPicker((prev) => !prev)
+                  }
+                  title="Emoji"
+                  className="flex-shrink-0 rounded-md p-1 text-[#7b8494] transition hover:bg-[#e9ebef] hover:text-[#4f5868]"
                 >
-                  <Smile size={22} />
+                  <Smile size={19} />
                 </button>
 
                 {showEmojiPicker && (
-                  <div className="absolute bottom-12 left-0 z-50">
+                  <div className="absolute bottom-14 left-0 z-50 overflow-hidden rounded-lg shadow-2xl">
                     <EmojiPicker
                       onEmojiClick={handleEmojiClick}
                       width={320}
@@ -214,28 +274,35 @@ const ChatWindow = ({
                     />
                   </div>
                 )}
-              </div>
 
                 <input
                   type="text"
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) =>
+                    setInput(e.target.value)
+                  }
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       sendMessage();
                     }
                   }}
                   placeholder="Send a message..."
-                  className="flex-1 bg-transparent text-sm outline-none text-text"
+                  className="min-w-0 flex-1 bg-transparent text-sm text-[#303642] outline-none placeholder:text-[#9299a6]"
                 />
 
                 <button
                   onClick={sendMessage}
-                  className="rounded-full bg-accent p-2 text-bg-deep transition hover:brightness-110"
+                  disabled={!input.trim()}
+                  title="Send message"
+                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-[#e8eaee] text-[#5e6675] transition hover:bg-[#dde0e5] hover:text-[#303642] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <SendHorizontal size={18} />
+                  <SendHorizontal size={17} />
                 </button>
               </div>
+
+              <p className="mt-1.5 text-center text-[10px] text-[#9299a6]">
+                Press Enter to send
+              </p>
             </div>
           </>
         )}
