@@ -1188,7 +1188,8 @@ const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 </optgroup> 
           </select>
 
-          <div className="flex items-center gap-1 px-2 py-1 border border-border rounded-md bg-bg-panel">
+        {/* CUSTOM COLOR PICKER */}
+<div className="flex items-center gap-1 px-2 py-1 border border-border rounded-md bg-bg-panel shrink-0">
   <span className="text-xs text-text-dim">
     Custom
   </span>
@@ -1198,15 +1199,13 @@ const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     value={customBackgroundColor}
     onChange={(e) => {
       const color = e.target.value;
-
       setCustomBackgroundColor(color);
       setBackground("custom");
     }}
-    className="w-7 h-7 p-0 border-0 rounded cursor-pointer"
-    title="Choose custom background color"
+    className="w-8 h-8 cursor-pointer rounded border border-gray-400"
+    title="Choose Custom Background Color"
   />
-</div>
-
+</div>  
           <div className="w-px h-5 bg-border shrink-0" />
 
           {/* HISTORY CONTROLS */}
