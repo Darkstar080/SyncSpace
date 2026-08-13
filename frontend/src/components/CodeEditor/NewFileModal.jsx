@@ -11,7 +11,7 @@ const LANGUAGES = [
 
 export default function NewFileModal({ open, onClose, onCreate }) {
   const [fileName, setFileName] = useState("main");
- const [language, setLanguage] = useState("plaintext");
+ const [language, setLanguage] = useState("typescript");
 
   if (!open) return null;
 
@@ -22,7 +22,7 @@ export default function NewFileModal({ open, onClose, onCreate }) {
     });
 
     setFileName("main");
-    setLanguage("javascript");
+    setLanguage("typescript");
   };
 
   return (

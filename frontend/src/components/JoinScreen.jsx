@@ -1,113 +1,258 @@
-import { useEffect, useState } from 'react'
-import { createRoom, getMyRooms, getUsername, clearSession, verifyRoomAccess, deleteRoom } from '../lib/api'
+import { useEffect, useState, useRef } from "react";
+import {
+  createRoom,
+  getMyRooms,
+  getUsername,
+  clearSession,
+  verifyRoomAccess,
+  deleteRoom,
+  requestToJoin,
+  getJoinRequestStatus,
+  cancelJoinRequest,
+  getPendingJoinRequests,
+  decideJoinRequest,
+} from "../lib/api";
 
 export default function JoinScreen({ onJoin, onLogout, theme, onToggleTheme }) {
-  const [myRooms, setMyRooms] = useState([])
-  const [loadingRooms, setLoadingRooms] = useState(true)
-  const [roomsError, setRoomsError] = useState('')
+  const [myRooms, setMyRooms] = useState([]);
+  const [loadingRooms, setLoadingRooms] = useState(true);
+  const [roomsError, setRoomsError] = useState("");
 
-  const [newRoomId, setNewRoomId] = useState('')
-  const [createdRoom, setCreatedRoom] = useState(null) // { roomId, pin } - shown once, freshest
-  const [createError, setCreateError] = useState('')
+  const [newRoomId, setNewRoomId] = useState("");
+  const [createdRoom, setCreatedRoom] = useState(null); // { roomId, pin } - shown once, freshest
+  const [createError, setCreateError] = useState("");
 
-  const [joinRoomId, setJoinRoomId] = useState('')
-  const [joinPin, setJoinPin] = useState('')
-  const [joinError, setJoinError] = useState('')
-  const [joining, setJoining] = useState(false)
+  const [joinRoomId, setJoinRoomId] = useState("");
+  const [joinPin, setJoinPin] = useState("");
+  const [joinError, setJoinError] = useState("");
+  const [joining, setJoining] = useState(false);
+
+  // "Waiting for owner approval" state
+  const [pendingRequestId, setPendingRequestId] = useState(null);
+  const waitingPollRef = useRef(null);
+
+  // Requests I own and need to approve/deny — polled continuously so
+  // they show up whether I'm sitting on this screen or already in a
+  // room elsewhere.
+  const [myPendingRequests, setMyPendingRequests] = useState([]);
 
   useEffect(() => {
-    refreshRooms()
-  }, [])
+    refreshRooms();
+  }, []);
+
+  useEffect(() => {
+    function poll() {
+      getPendingJoinRequests()
+        .then((data) => setMyPendingRequests(data.pending))
+        .catch(() => {});
+    }
+    poll();
+    const interval = setInterval(poll, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // While waiting for approval, poll my own request's status.
+  useEffect(() => {
+    if (!pendingRequestId) return;
+
+    waitingPollRef.current = setInterval(() => {
+      getJoinRequestStatus(pendingRequestId)
+        .then((data) => {
+          if (data.status === "approved") {
+            clearInterval(waitingPollRef.current);
+            setPendingRequestId(null);
+            onJoin({ room: data.roomId, pin: joinPin.trim() });
+          } else if (data.status === "denied") {
+            clearInterval(waitingPollRef.current);
+            setPendingRequestId(null);
+            setJoinError("The room owner denied your request to join.");
+          }
+        })
+        .catch(() => {});
+    }, 2000);
+
+    return () => clearInterval(waitingPollRef.current);
+  }, [pendingRequestId]);
 
   async function refreshRooms() {
-    setLoadingRooms(true)
-    setRoomsError('')
+    setLoadingRooms(true);
+    setRoomsError("");
     try {
-      const rooms = await getMyRooms()
-      setMyRooms(rooms)
+      const rooms = await getMyRooms();
+      setMyRooms(rooms);
     } catch (err) {
-      setRoomsError(err.message)
+      setRoomsError(err.message);
     } finally {
-      setLoadingRooms(false)
+      setLoadingRooms(false);
     }
   }
 
   async function handleCreate(e) {
-    e.preventDefault()
-    setCreateError('')
-    if (!newRoomId.trim()) return
+    e.preventDefault();
+    setCreateError("");
+    if (!newRoomId.trim()) return;
     try {
-      const room = await createRoom(newRoomId.trim())
-      setCreatedRoom(room)
-      setNewRoomId('')
-      refreshRooms()
+      const room = await createRoom(newRoomId.trim());
+      setCreatedRoom(room);
+      setNewRoomId("");
+      refreshRooms();
     } catch (err) {
-      setCreateError(err.message)
+      setCreateError(err.message);
     }
   }
 
   async function handleDelete(roomId) {
     const confirmed = window.confirm(
-      `Delete room "${roomId}"? This permanently removes it and everything in it — this cannot be undone.`
-    )
-    if (!confirmed) return
+      `Delete room "${roomId}"? This permanently removes it and everything in it — this cannot be undone.`,
+    );
+    if (!confirmed) return;
 
     try {
-      await deleteRoom(roomId)
-      refreshRooms()
+      await deleteRoom(roomId);
+      refreshRooms();
     } catch (err) {
-      alert(`Failed to delete room: ${err.message}`)
+      alert(`Failed to delete room: ${err.message}`);
     }
   }
 
   async function attemptJoin(room, pin) {
-    setJoinError('')
-    setJoining(true)
+    setJoinError("");
+    setJoining(true);
     try {
       // Pre-flight check over plain HTTP: gives a clean, immediate error
       // for a wrong PIN or nonexistent room, instead of opening a
       // WebSocket that the server will reject and y-websocket will then
       // silently keep retrying in the background.
-      await verifyRoomAccess(room, pin)
-      onJoin({ room, pin })
+      await verifyRoomAccess(room, pin);
+
+      // PIN is correct — now find out if approval is even needed
+      // (owners skip it entirely).
+      const result = await requestToJoin(room, pin);
+      if (result.isOwner) {
+        onJoin({ room, pin });
+      } else {
+        setJoinPin(pin); // needed later once approval comes through
+        setPendingRequestId(result.requestId);
+      }
     } catch (err) {
-      setJoinError(err.message)
+      setJoinError(err.message);
     } finally {
-      setJoining(false)
+      setJoining(false);
+    }
+  }
+
+  async function handleCancelWaiting() {
+    if (!pendingRequestId) return;
+    try {
+      await cancelJoinRequest(pendingRequestId);
+    } catch (err) {
+      // even if this fails, still let them back out locally
+    }
+    setPendingRequestId(null);
+  }
+
+  async function handleDecision(requestId, approve) {
+    try {
+      await decideJoinRequest(requestId, approve);
+      setMyPendingRequests((prev) =>
+        prev.filter((r) => r.requestId !== requestId),
+      );
+    } catch (err) {
+      alert(`Failed to respond: ${err.message}`);
     }
   }
 
   function handleJoin(e) {
-    e.preventDefault()
+    e.preventDefault();
     if (!joinRoomId.trim() || !joinPin.trim()) {
-      setJoinError('Room ID and PIN are both required')
-      return
+      setJoinError("Room ID and PIN are both required");
+      return;
     }
-    attemptJoin(joinRoomId.trim(), joinPin.trim())
+    attemptJoin(joinRoomId.trim(), joinPin.trim());
   }
 
   function handleLogout() {
-    clearSession()
-    onLogout()
+    clearSession();
+    onLogout();
+  }
+
+  if (pendingRequestId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_30%_20%,var(--color-bg-deep)_0%,var(--color-bg)_60%)] p-6">
+        <div className="bg-bg-panel border border-border rounded-xl p-8 max-w-sm text-center flex flex-col gap-4">
+          <h2 className="m-0 text-lg font-medium text-text">
+            Waiting for approval…
+          </h2>
+          <p className="m-0 text-sm text-text-dim">
+            The room owner needs to let you in. This can take a while if they're
+            not currently online — feel free to cancel and try again later.
+          </p>
+          <button
+            onClick={handleCancelWaiting}
+            className="text-xs text-accent-2 underline cursor-pointer bg-transparent border-none"
+          >
+            Cancel request
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_30%_20%,var(--color-bg-deep)_0%,var(--color-bg)_60%)] p-6">
       <div className="w-full max-w-md flex flex-col gap-6">
+        {myPendingRequests.length > 0 && (
+          <div className="bg-bg-panel border border-accent rounded-xl p-4 flex flex-col gap-2">
+            <h2 className="m-0 text-sm font-medium text-text">
+              People waiting to join your rooms
+            </h2>
+            {myPendingRequests.map((r) => (
+              <div
+                key={r.requestId}
+                className="flex items-center justify-between bg-bg-deep border border-border rounded-md px-3 py-2 text-sm"
+              >
+                <span className="text-text">
+                  {r.username} →{" "}
+                  <span className="text-text-dim">{r.roomId}</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleDecision(r.requestId, true)}
+                    className="text-xs bg-accent text-bg-deep rounded px-2.5 py-1 cursor-pointer hover:brightness-110"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => handleDecision(r.requestId, false)}
+                    className="text-xs bg-transparent border border-accent-2 text-accent-2 rounded px-2.5 py-1 cursor-pointer hover:bg-accent-2 hover:text-bg-deep"
+                  >
+                    Deny
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="m-0 text-2xl tracking-tight bg-gradient-to-r from-accent to-accent-2 bg-clip-text text-transparent">
               SyncSpace
             </h1>
-            <p className="m-0 text-text-dim text-xs mt-1">Signed in as {getUsername()}</p>
+            <p className="m-0 text-text-dim text-xs mt-1">
+              Signed in as {getUsername()}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={onToggleTheme}
-              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={
+                theme === "dark"
+                  ? "Switch to light mode"
+                  : "Switch to dark mode"
+              }
               className="text-xs text-text-dim border border-border rounded-full px-2.5 py-1 cursor-pointer hover:text-text"
             >
-              {theme === 'dark' ? '☀' : '☾'}
+              {theme === "dark" ? "☀" : "☾"}
             </button>
             <button
               onClick={handleLogout}
@@ -139,13 +284,15 @@ export default function JoinScreen({ onJoin, onLogout, theme, onToggleTheme }) {
               className="w-24 bg-bg-deep border border-border rounded-md px-3 py-2 text-text text-sm focus:outline-2 focus:outline-accent"
             />
           </div>
-          {joinError && <p className="m-0 text-xs text-accent-2">{joinError}</p>}
+          {joinError && (
+            <p className="m-0 text-xs text-accent-2">{joinError}</p>
+          )}
           <button
             type="submit"
             disabled={joining}
             className="bg-accent text-bg-deep rounded-md py-2.5 font-semibold text-sm cursor-pointer hover:brightness-110 disabled:opacity-50"
           >
-            {joining ? 'Checking…' : 'Join room'}
+            {joining ? "Checking…" : "Join room"}
           </button>
         </form>
 
@@ -154,7 +301,9 @@ export default function JoinScreen({ onJoin, onLogout, theme, onToggleTheme }) {
           onSubmit={handleCreate}
           className="bg-bg-panel border border-border rounded-xl p-6 flex flex-col gap-3"
         >
-          <h2 className="m-0 text-sm font-medium text-text">Create a new room</h2>
+          <h2 className="m-0 text-sm font-medium text-text">
+            Create a new room
+          </h2>
           <div className="flex gap-2">
             <input
               value={newRoomId}
@@ -169,15 +318,25 @@ export default function JoinScreen({ onJoin, onLogout, theme, onToggleTheme }) {
               Create
             </button>
           </div>
-          {createError && <p className="m-0 text-xs text-accent-2">{createError}</p>}
+          {createError && (
+            <p className="m-0 text-xs text-accent-2">{createError}</p>
+          )}
           {createdRoom && (
             <div className="bg-bg-deep border border-border rounded-md p-3 text-sm">
-              <p className="m-0 text-text-dim text-xs">Room created — share these with your team:</p>
+              <p className="m-0 text-text-dim text-xs">
+                Room created — share these with your team:
+              </p>
               <p className="m-0 mt-1 text-text">
-                Room ID: <span className="text-accent font-semibold">{createdRoom.roomId}</span>
+                Room ID:{" "}
+                <span className="text-accent font-semibold">
+                  {createdRoom.roomId}
+                </span>
               </p>
               <p className="m-0 text-text">
-                PIN: <span className="text-accent font-semibold">{createdRoom.pin}</span>
+                PIN:{" "}
+                <span className="text-accent font-semibold">
+                  {createdRoom.pin}
+                </span>
               </p>
             </div>
           )}
@@ -186,10 +345,16 @@ export default function JoinScreen({ onJoin, onLogout, theme, onToggleTheme }) {
         {/* My rooms - owner view, PIN always visible again here */}
         <div className="bg-bg-panel border border-border rounded-xl p-6 flex flex-col gap-3">
           <h2 className="m-0 text-sm font-medium text-text">My rooms</h2>
-          {loadingRooms && <p className="m-0 text-xs text-text-dim">Loading…</p>}
-          {roomsError && <p className="m-0 text-xs text-accent-2">{roomsError}</p>}
+          {loadingRooms && (
+            <p className="m-0 text-xs text-text-dim">Loading…</p>
+          )}
+          {roomsError && (
+            <p className="m-0 text-xs text-accent-2">{roomsError}</p>
+          )}
           {!loadingRooms && myRooms.length === 0 && (
-            <p className="m-0 text-xs text-text-dim">You don't own any rooms yet.</p>
+            <p className="m-0 text-xs text-text-dim">
+              You don't own any rooms yet.
+            </p>
           )}
           <div className="flex flex-col gap-2">
             {myRooms.map((r) => (
@@ -220,5 +385,5 @@ export default function JoinScreen({ onJoin, onLogout, theme, onToggleTheme }) {
         </div>
       </div>
     </div>
-  )
+  );
 }

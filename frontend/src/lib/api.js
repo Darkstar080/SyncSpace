@@ -108,3 +108,33 @@ export async function deleteRoom(roomId) {
     auth: true,
   })
 }
+
+export async function requestToJoin(roomId, pin) {
+  return request(`/rooms/${encodeURIComponent(roomId)}/join-requests`, {
+    method: 'POST',
+    body: { pin },
+    auth: true,
+  })
+}
+
+export async function getJoinRequestStatus(requestId) {
+  return request(`/rooms/join-requests/${requestId}`, { auth: true })
+}
+
+export async function cancelJoinRequest(requestId) {
+  return request(`/rooms/join-requests/${requestId}/cancel`, {
+    method: 'POST',
+    auth: true,
+  })
+}
+
+export async function getPendingJoinRequests() {
+  return request('/rooms/join-requests/pending/mine', { auth: true })
+}
+
+export async function decideJoinRequest(requestId, approve) {
+  return request(`/rooms/join-requests/${requestId}/${approve ? 'approve' : 'deny'}`, {
+    method: 'POST',
+    auth: true,
+  })
+}
