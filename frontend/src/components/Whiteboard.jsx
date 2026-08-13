@@ -162,10 +162,21 @@ function createPatternImage(type) {
   return image;
 }
 
-function WhiteboardBackground({ background, width, height }) {
+function WhiteboardBackground({
+  background,
+  customBackgroundColor,
+  width,
+  height,
+}) {
   const [patternImage, setPatternImage] = useState(null);
 
-  const backgroundConfig = BACKGROUNDS[background] || BACKGROUNDS.white;
+  const backgroundConfig =
+  background === "custom"
+    ? {
+        type: "solid",
+        color: customBackgroundColor,
+      }
+    : BACKGROUNDS[background] || BACKGROUNDS.white;
 
   useEffect(() => {
     if (backgroundConfig.type !== "pattern") {
@@ -273,6 +284,8 @@ const [, forceRender] = useReducer((x) => x + 1, 0);
 const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [background, setBackground] = useState("white");
+  const [customBackgroundColor, setCustomBackgroundColor] =
+  useState("#ffffff");
   
   const [isFullscreen, setIsFullscreen] = useState(false);
   const whiteboardRef = useRef(null);
@@ -1169,6 +1182,25 @@ const [showEmojiPicker, setShowEmojiPicker] = useState(false);
             </optgroup>
           </select>
 
+          <div className="flex items-center gap-1 px-2 py-1 border border-border rounded-md bg-bg-panel">
+  <span className="text-xs text-text-dim">
+    Custom
+  </span>
+
+  <input
+    type="color"
+    value={customBackgroundColor}
+    onChange={(e) => {
+      const color = e.target.value;
+
+      setCustomBackgroundColor(color);
+      setBackground("custom");
+    }}
+    className="w-7 h-7 p-0 border-0 rounded cursor-pointer"
+    title="Choose custom background color"
+  />
+</div>
+
           <div className="w-px h-5 bg-border shrink-0" />
 
           {/* HISTORY CONTROLS */}
@@ -1284,10 +1316,11 @@ const [showEmojiPicker, setShowEmojiPicker] = useState(false);
           {/* BACKGROUND LAYER */}
 <Layer listening={false}>
   <WhiteboardBackground
-    background={background}
-    width={5000}
-    height={5000}
-  />
+  background={background}
+  customBackgroundColor={customBackgroundColor}
+  width={5000}
+  height={5000}
+/>
 </Layer>
 
 {/* DRAWING LAYER */}
