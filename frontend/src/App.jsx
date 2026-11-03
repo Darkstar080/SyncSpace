@@ -5,6 +5,7 @@ import Whiteboard from './components/Whiteboard'
 import CodeEditor from './components/CodeEditor'
 import ConnectionBanner from './components/ConnectionBanner'
 import ReplayModal from './components/ReplayModal'
+import VoiceChatControls from './components/VoiceChatControls'
 import { createRoomConnection, destroyRoomConnection, randomColor } from './lib/yjs'
 import { getToken, getUsername, clearSession } from './lib/api'
 import { getInitialTheme, applyToDocument, setExplicitTheme, watchSystemTheme, hasExplicitPreference } from './lib/theme'
@@ -171,6 +172,7 @@ const isDraggingEditor = useRef(false);
           >
             History
           </button>
+          <VoiceChatControls provider={connection.provider} awareness={connection.awareness} />
           <span
             className={`w-2 h-2 rounded-full ${
               status === 'connected'

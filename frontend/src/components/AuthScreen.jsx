@@ -231,7 +231,7 @@ export default function AuthScreen({ onAuthenticated }) {
                     className="auth-mono text-[10px] px-1.5 py-0.5 rounded"
                     style={{ background: 'var(--auth-amber)', color: '#412402' }}
                   >
-                    Priya
+                    Farhan
                   </span>
                 </div>
               </div>

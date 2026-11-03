@@ -34,6 +34,7 @@ const HISTORY_SNAPSHOT_INTERVAL_MS = 30_000;
 
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
+const MESSAGE_WEBRTC_SIGNAL = 2 // relayed only — server doesn't interpret the contents
 
 // docName -> WSSharedDoc
 const rooms = new Map();
@@ -136,6 +137,14 @@ function takeHistorySnapshotIfDirty(doc) {
       `[rooms] failed to save history snapshot for "${doc.name}": ${err.message}`,
     );
   });
+}
+
+/** Find which connection currently controls a given awareness clientID. */
+function findConnByClientId(doc, clientId) {
+  for (const [conn, ids] of doc._connControlledIds) {
+    if (ids.has(clientId)) return conn
+  }
+  return null
 }
 
 function send(conn, message) {
@@ -248,16 +257,40 @@ export async function setupWSConnection(conn, docName) {
         }
         break;
       }
-      case MESSAGE_AWARENESS: {
+            case MESSAGE_AWARENESS: {
         awarenessProtocol.applyAwarenessUpdate(
           doc.awareness,
           decoding.readVarUint8Array(decoder),
-          conn,
-        );
-        break;
+          conn
+        )
+        break
+      }
+      case MESSAGE_WEBRTC_SIGNAL: {
+        // Voice chat signaling (WebRTC offer/answer/ICE candidates).
+        // The server never interprets this — it's a dumb relay to
+        // exactly ONE target peer, identified by their awareness
+        // clientID. Actual audio never touches the server at all;
+        // this is only the handshake to help two browsers connect
+        // directly to each other.
+        const payload = decoding.readVarString(decoder)
+        let parsed
+        try {
+          parsed = JSON.parse(payload)
+        } catch (e) {
+          console.warn('[rooms] invalid WebRTC signal payload, dropping')
+          break
+        }
+        const targetConn = findConnByClientId(doc, parsed.targetClientId)
+        if (targetConn) {
+          const relayEncoder = encoding.createEncoder()
+          encoding.writeVarUint(relayEncoder, MESSAGE_WEBRTC_SIGNAL)
+          encoding.writeVarString(relayEncoder, payload)
+          send(targetConn, encoding.toUint8Array(relayEncoder))
+        }
+        break
       }
       default:
-        console.warn("[rooms] unknown message type", messageType);
+        console.warn('[rooms] unknown message type', messageType)
     }
   });
 
